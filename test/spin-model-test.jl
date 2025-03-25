@@ -74,7 +74,7 @@ end
     @test sm.β == β
     @test sm.I == I
 
-    sm = CompleteSM(J, θ, β, I, n, R, C)
+    sm = CombinedSM(J, θ, β, I, n, R, C)
     @test sm.N == N
     @test sm.Q == Q
     @test sm.J == J
@@ -102,7 +102,7 @@ end
     n = spike_ic_sm(N)
 
     begin # β = 0, θ = 0
-        sm = CompleteSM(J, 0, 0, I, n, R, C)
+        sm = CombinedSM(J, 0, 0, I, n, R, C)
         @test local_current(sm, 1) == C[1]*(J+I)
         @test local_current(sm, 2) == C[1]*(J+I) + C[2]*I
         @test fprob(sm, 1) == 0.5
@@ -111,20 +111,20 @@ end
         @test length(fps) == N
     end
     begin # β = 1, θ = 0
-        sm = CompleteSM(J, 0, 1, I, n, R, C)
+        sm = CombinedSM(J, 0, 1, I, n, R, C)
         @test fprob(sm, 1) == 0.5*(1+tanh(1.1))
         fps = fprob(sm)
         @test all(fps .==  0.5*(1+tanh(1.1)))
     end
     begin # β = 1, θ = 1
-        sm = CompleteSM(J, 1, 1, I, n, R, C)
+        sm = CombinedSM(J, 1, 1, I, n, R, C)
         @test fprob(sm, 1) == 0.5*(1+tanh(0.1))
         fps = fprob(sm)
         @test all(fps .==  0.5*(1+tanh(0.1)))
     end
     begin # β = 1, θ = 0, size 2 spike
         n = [zeros(Int(N/2))..., ones(Int(N/2))...]
-        sm = sm = CompleteSM(J, 0, 1, I, n, R, C)
+        sm = sm = CombinedSM(J, 0, 1, I, n, R, C)
         @test local_current(sm, 1) == C[1]*(J*n2a(sm)[1]+I)
         @test local_current(sm, 2) == C[1]*(J*n2a(sm)[1]+I) + C[2]*(J*n2a(sm)[2]+I)
     end
@@ -142,7 +142,7 @@ end
     n = spike_ic_sm(N)
 
     # β = 0
-    sm = CompleteSM(1, 0, 0, I, n, R, C)
+    sm = CombinedSM(1, 0, 0, I, n, R, C)
     @test all(rcheck(sm) .== false)
     @test all(fprob(sm) .== 0.5)
     parallel_update!(sm)
@@ -164,7 +164,7 @@ end
     I = 0.1
     C = exponential_weights(Q, 0.1)
     n = spike_ic_sm(N)
-    sm = CompleteSM(J, 0, 1, I, n, R, C)
+    sm = CombinedSM(J, 0, 1, I, n, R, C)
 
     # single spin updates
     # goal: do nothing
