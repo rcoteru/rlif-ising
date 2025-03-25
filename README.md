@@ -1,5 +1,5 @@
 # Refractive Leaky Integrate-and-Fire Ising model
-[![CI](https://github.com/rcoteru/RefractiveIsing/actions/workflows/CI.yml/badge.svg)](https://github.com/rcoteru/RefractiveIsing/actions/workflows/CI.yml)
+[![CI](https://github.com/rcoteru/rlif-ising/actions/workflows/CI.yml/badge.svg)](https://github.com/rcoteru/rlif-ising/actions/workflows/CI.yml)
 
 
 Code to reproduce the figures in the article "_Ising Model of Refractive Leaky Integrate-and-Fire Neurons_" by [Raúl Coterillo](https://orcid.org/0000-0001-7567-3646) and [Miguel Aguilera](https://orcid.org/0000-0002-3366-4706).
