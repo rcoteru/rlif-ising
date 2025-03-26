@@ -126,7 +126,7 @@ function local_current(s::IsingModel, τ::Int)::Float64
 end
 function local_currents(s::IsingModel)::Vector{Float64}
     cτ = [local_current(s, τ) for τ in 1:s.Q]
-    return [cτ[min(n+1, s.Q)] for n in s.n]
+    return [cτ[min(max(1,n+1-s.R), s.Q)] for n in s.n]
 end
 
 function fprob(s::IsingModel)::Vector{Float64}

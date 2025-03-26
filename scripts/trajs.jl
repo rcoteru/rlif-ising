@@ -643,9 +643,9 @@ end
 
 # MF: Time series 
 begin
-    J = 0.3
+    J = 0.16
     θ = 1
-    β = 10
+    β = 12
     I = 0.1
     α = 0.1
     Q = 50
@@ -671,22 +671,85 @@ begin
     display(f)
 end
 
+# MF: Time series FFT
+begin
+    J = 0.16
+    θ = 1
+    β = 12
+    I = 0.1
+    α = 0.1
+    Q = 50
+    C = exponential_weights(Q, α)
+    ic = spike_ic_mf(0, Q)
+
+    nequi, nmeas = 10000,1000
+
+    ic = spike_ic_mf(0, Q)
+    dm = IntegratorIMF(ic, J, θ, β, I, C)
+    
+    forward!(dm, nequi)
+    traj = trajectory!(dm, nmeas, ft=true)
+
+    t0, tf = 1, nmeas
+    f = Figure()
+    ax = Axis(f[1,1], xlabel=L"f", ylabel=L"|n(f)|")
+    labels = ["Firing", "Refractive", "Ready"]
+    for i in 1:3
+        x = rfftfreq(length(traj[t0:tf,i]))[2:end]
+        y = abs.(rfft(traj[t0:tf,i]))[2:end]
+        lines!(ax, x, y, label=labels[i])
+    end
+
+    # decorations
+    ax.title = L"Integrator model, $\theta = %$θ; \beta = %$β; J = %$J$"
+    ax.yticklabelsvisible = false
+    axislegend(ax)
+    display(f)
+end
+
+# MF: Time series Poincare section
+begin
+    J = 0.2
+    θ = 1
+    β = 12
+    I = 0.1
+    α = 0.1
+    Q = 50
+    C = exponential_weights(Q, α)
+    ic = spike_ic_mf(0, Q)
+
+    nequi, nmeas = 10000,1000
+
+    ic = spike_ic_mf(0, Q)
+    dm = IntegratorIMF(ic, J, θ, β, I, C)
+    
+    forward!(dm, nequi)
+    traj = trajectory!(dm, nmeas, ft=true)
+
+    f = Figure()
+    ax = Axis(f[1,1], xlabel=L"a(t)", ylabel=L"a(t+1)")
+    lines!(ax, traj[1:end-1,1], traj[2:end,1], color = :black)
+    display(f)
+end
+
+# Spin model time series
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
 # SM: Time series, activity, fields
 begin
-    N = 400
-    J = 0.4
-    β = 10
+    N = 500
+    J = 0.2
+    β = 15
     θ = 1
     I = 0.1
-    R = 0
     α = 0.1
     Q = 50
     C = exponential_weights(Q, α)
     #n = spike_ic_sm(N)
     n = random_ic_sm(N, Q)
-    sm = CompleteSM(J, θ, β, I, n, R, C)
+    sm = IntegratorSM(J, θ, β, I, n, C)
 
-    nequi, nmeas = 1000, 1000
+    nequi, nmeas = 1000, 500
     forward!(sm, nequi)
     sh, lcs = spinwise_traj!(sm, nmeas, parallel=true)
 
@@ -732,7 +795,7 @@ begin
     forward!(dm, nequi)
     traj = trajectory!(dm, nmeas, ft=true)
 
-    t0, tf = 1, 20
+    t0, tf = 1, 30
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"t", ylabel=L"n")
     labels = ["Firing", "Refractive", "Ready"]
@@ -742,5 +805,46 @@ begin
     axislegend(ax, position = :lt)
 
     ax.title = L"Combined Model, $\theta = %$θ; \beta = %$β; R = %$R; J = %$J$"
+    display(f)
+end
+
+# MF: Time series FFT
+begin
+    J = 0.1
+    θ = 0.1
+    R = 5
+    β = 6
+    I = 0.1 
+    Q = 50
+    C = exponential_weights(Q, 0.1)
+
+    nequi, nmeas = 10000, 1000
+
+    ic = random_ic_mf(R, Q)
+    dm = CombinedIMF(ic, J, θ, β, I, C)
+    
+    forward!(dm, nequi)
+    traj = trajectory!(dm, nmeas, ft=true)
+
+    t0, tf = 1, nmeas
+    f = Figure()
+    ax = Axis(f[1,1], xlabel=L"f", ylabel=L"|n(f)|")
+    labels = ["Firing", "Refractive", "Ready"]
+    for i in 1:3
+        x = rfftfreq(length(traj[t0:tf,i]))[2:end]
+        y = abs.(rfft(traj[t0:tf,i]))[2:end]
+        lines!(ax, x, y, label=labels[i])
+    end
+
+    # harmonics
+    harmonics = [1, 2, 3]
+    for h in harmonics
+        vlines!(ax, 1/(h*(R+1)), [0, 1], color = :black, linestyle = :dash)
+    end
+
+    # decorations
+    ax.title = L"Combined Model, $\theta = %$θ; \beta = %$β; R = %$R; J = %$J$"
+    ax.yticklabelsvisible = false
+    axislegend(ax)
     display(f)
 end

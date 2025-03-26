@@ -173,30 +173,32 @@ begin
 
     # parameters
     N = 2000
-    J = 1
+    J = 0.3
     θ = 1
-    β = 1
+    β = 10
     Q = 50
-    I = 0
+    I = 0.1
     α = 0.1
     C = exponential_weights(Q, α)
-    R = 5
+    R = 3
 
     # theoretical fixed points
-    xt = combined_fxp(J, θ, β, I, R, C)
+    #xt = combined_fxp(J, θ, β, I, R, C)
+    xt = zeros(R+Q+1)
 
     # mean field simulation
     ic = random_ic_mf(R, Q)
     dm = CombinedIMF(ic, J, θ, β, I, C)
-    forward!(dm, 2000)
+    forward!(dm, 5000)
     xm = dm.x
-
+    
     # spin simulation
+    # n = spike_ic_sm(N)
     n = random_ic_sm(N, R+Q)
     sm = CombinedSM(J, θ, β, I, n, R, C)
-    forward!(sm, 2000, parallel = true)
+    forward!(sm, 5000, parallel = true)
     xs = zeros(R+Q+1)
-    samps = 1000
+    samps = 1
     for i in 1:samps
         forward!(sm, 1, parallel = true)
         xs += n2N(sm)

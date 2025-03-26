@@ -114,7 +114,6 @@ end
     step!(mf)
     @test mf.x ≈ x
 end 
-
 @testset "Refractive IMF" begin
 
     # β = 0, θ = 0, I = 0
@@ -184,9 +183,6 @@ end
         β*(J*(C[3]*probs[2,2]*probs[2,1] + C[2]*probs[2,1] + C[1])*x 
         + (C[3]+C[2]+C[1])*I-θ))/2
 end
-
-
-
 @testset "Integrator IMF" begin
 
     # β = 0, θ = 0, I = 0
@@ -228,10 +224,19 @@ end
     I = 0
     C = exponential_weights(Q, 0.1)
 
-    combined_fxp(J, θ, β, I, R, C)
+    #combined_fxp(J, θ, β, I, R, C)
 
     
 end
+
+J = 0.1
+θ = 1
+β = 5
+Q = 50
+R = 20
+I = 0
+C = exponential_weights(Q, 0.1)
+
 
 @testset "Combined IMF" begin
    
@@ -252,22 +257,12 @@ end
     # β = 1, θ = 0, I = 0
     R, Q = 2, 3
     x0, C = quiet_ic_mf(R, Q), ones(Q)
-    dm = CombinedIMF(x0, 1, 0, 0, 0, C)
+    dm = CombinedIMF(x0, 1, 0, 1, 0, C)
+    step!(dm)
+    @test dm.x == [0.5,0.0,0,0,0,0.5]
+    step!(dm)
+    @test dm.x == [0.5*(1+tanh(0.5))/2,
+        0.5,0,0,0,0.5*(1-tanh(0.5))/2]
 
 
 end
-
-J = 0.1
-θ = 1
-β = 5
-Q = 50
-R = 20
-I = 0
-C = exponential_weights(Q, 0.1)
-ic = random_ic_mf(R, Q)
-
-dm = CombinedIMF(ic, J, θ, β, I, C)
-
-step!(dm)
-
-dm.x    

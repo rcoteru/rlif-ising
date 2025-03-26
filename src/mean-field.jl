@@ -229,9 +229,10 @@ function combined_fxp_currents(x::Real,
     ) :: Vector{Float64}
     Q = length(C)
     currs = zeros(Q)
-    currs[1] = β*(C[1]*(J*x+I)-θ)
     # some of these are simpler than the integrator currents
-    for τmax in 2:Q
+    # currs[1] = β*(C[1]*(J*x+I)-θ)
+    currs[1:R+1] = [β*(C[1:r]*(J*x+I)-θ) for r in 1:R+1]
+    for τmax in R+2:Q
         net_sum = sum([C[i]*(prod(0.5.-0.5.*tanh.(currs[1:i-1]))*x) 
             for i in 1:τmax])
         ext_sum = I*sum([C[i] for i in 1:τmax])
@@ -240,22 +241,40 @@ function combined_fxp_currents(x::Real,
     return currs
 end
 
+function combined_fxp_transcendental(x::Real, 
+        J::Real, θ::Real, β::Real, I::Real, 
+        R::Int, C::Vector) :: Real
+    Q = length(C)
+    currs = combined_fxp_currents(x, J, θ, β, I, C)
+    ps = 0.5 .- 0.5*tanh.(currs)
+    return (x + x*sum([prod(ps[1:τ-1]) for τ in 2:Q]) 
+        +  x*prod(ps[1:Q])*exp(-2*currs[Q]) - 1)
+end
 
 #TODO implement this
 function combined_fxp(J::Real, θ::Real, β::Real, I::Real, 
         R::Int, C::Vector) :: Vector{Float64}
     Q = length(C)
-    return zeros(R+Q+1)
+    _transcendent(x) = combined_fxp_transcendental(x, J, θ, β, I, R, C)
+    sol = find_zero(_transcendent, (0, 1/(R+1)), Brent(), maxevals=200)
+    currs = combined_fxp_currents(sol, J, θ, β, I, C)
+    ps = 0.5 .- 0.5*tanh.(currs)
+    return [# check this
+        fill(sol, R+1),
+        [sol*prod(ps[1:τ]) for τ in 1:Q-1]...,
+        sol*prod(ps[1:Q])*exp(-2*currs[Q])
+    ]
 end
 
 function combined_map(x, p)
-    activ = [tanh(p[:β]*(p[:J]*p[:C][1:τ]'*x[1:τ]+p[:θ]))/2 for τ in 1:p[:Q]]
+    activ = [tanh(p[:β]*(p[:C][1:τ]'*(p[:J]*x[1:τ] .+ p[:I])  
+        - p[:θ]))/2 for τ in 1:p[:Q]]
     R, Q = p[:R], p[:Q]
     return [
         x[R+1:R+Q]'*(0.5.+activ)+x[R+Q+1]'*(0.5.+activ[Q])  # a0
         x[1:R]                                              # a1 to a{R+1}
         x[R+1:R+Q-1].*(0.5.-activ[1:end-1])                 # a{R+2} to a{R+Q}
-        (x[R+Q]+x[R+Q+1])*0.5.*(0.5.-activ[Q])              # a{R+Q+1}
+        (x[R+Q]+x[R+Q+1])*(0.5.-activ[Q])                   # a{R+Q+1}
     ]
 end
 
@@ -276,7 +295,7 @@ function CombinedIMF(x0::Vector, J::Real, θ::Real, β::Real,
             ]
     nft = 4
     # precompute stuff
-    pc = Dict(:fxp => combined_fxp(J, θ, β, I, R, C))
+    pc = Dict(:fxp => zeros(R+Q+1))#combined_fxp(J, θ, β, I, R, C))
     return DiscreteMap{R+Q+1}("Combined IMF Model",
         combined_map, x0, x0, p, ft, nft, pc)
 end
