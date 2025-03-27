@@ -3,7 +3,7 @@ using DrWatson
 
 begin # load project environment
     include(srcdir("spin-model.jl"));
-    include(srcdir("mean-field2.jl"));
+    include(srcdir("mean-field.jl"));
     include(srcdir("auxiliary.jl"));   
     using ProgressBars
     using CairoMakie
@@ -20,15 +20,17 @@ begin
     J = -1
     R = 3
     θ = 0
+    I = 0
     βs = range(0, 50, 101)
     ic = spike_ic_mf(R, 0)
 
     nequi, nmeas = 20000, 1000
     
     # run the simulations
-    meas = zeros(length(βs), 8)
-    Threads.@threads for (i,) in ProgressBar(idx_combinations([βs]))    
-        dm = RefractiveIMF(ic, J, θ, βs[i])
+    meas = zeros(length(βs), 12)
+    #Threads.@threads 
+    for (i,) in ProgressBar(idx_combinations([βs]))
+        dm = RefractiveIMF(ic, J, θ, βs[i], I)
         forward!(dm, nequi)
         meas[i,:] = stats!(dm, nmeas, ft=true)
     end
@@ -36,13 +38,14 @@ begin
     # plot
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"β", ylabel=L"n")
-    colors = [:black, :red, :blue, :green]
-    labels = ["Firing", "Refractive", "Ready", "Fxp distance"]
-    for i in [1]
-        lines!(ax, βs, meas[:,i], color = colors[i], label = labels[i])
-        lines!(ax, βs, meas[:,i]+meas[:,i+4], color = colors[i], linestyle = :dash)
-        lines!(ax, βs, meas[:,i]-meas[:,i+4], color = colors[i], linestyle = :dash)
-    end
+    colors = [:black, :red, :blue, :green, :orange, :purple]
+    labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
+    # for i in [1, 4, 5,6]
+    #     lines!(ax, βs, meas[:,i], color = colors[i], label = labels[i])
+    #     lines!(ax, βs, meas[:,i]+meas[:,i+6], color = colors[i], linestyle = :dash)
+    #     lines!(ax, βs, meas[:,i]-meas[:,i+6], color = colors[i], linestyle = :dash)
+    # end
+    lines!(ax, βs, meas[:,12], color = colors[6], label = labels[6])
     # set title with θ dynamically
     ax.title = L"Refractive model, $\theta = %$θ$"
     axislegend(ax, position = :lt)
@@ -52,18 +55,19 @@ end
 
 # MF: mean, std along θ
 begin
-    J = 0.1
+    J = 1
     R = 3
     β = 50
+    I = 0
     θs = range(-0.5,0.5, 101)
     ic = spike_ic_mf(R, 0)
 
-    nequi, nmeas = 20000, 30000
+    nequi, nmeas = 40000, 20000
     
     # run the simulations
-    meas = zeros(length(θs), 8)
+    meas = zeros(length(θs), 12)
     Threads.@threads for (i,) in ProgressBar(idx_combinations([θs]))    
-        dm = RefractiveIMF(ic, J, θs[i], β)
+        dm = RefractiveIMF(ic, J, θs[i], β, I)
         forward!(dm, nequi)
         meas[i,:] = stats!(dm, nmeas, ft=true)
     end
@@ -71,12 +75,12 @@ begin
     # plot
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"θ", ylabel=L"n")
-    colors = [:black, :red, :blue, :green]
-    labels = ["Firing", "Refractive", "Ready", "Fxp distance"]
-    for i in [1,4]
+    colors = [:black, :red, :blue, :green, :orange, :purple]
+    labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
+    for i in [1,4,5,6]
         lines!(ax, θs, meas[:,i], color = colors[i], label = labels[i])
-        lines!(ax, θs, meas[:,i]+meas[:,i+4], color = colors[i], linestyle = :dash)
-        lines!(ax, θs, meas[:,i]-meas[:,i+4], color = colors[i], linestyle = :dash)
+        lines!(ax, θs, meas[:,i]+meas[:,i+6], color = colors[i], linestyle = :dash)
+        lines!(ax, θs, meas[:,i]-meas[:,i+6], color = colors[i], linestyle = :dash)
     end
     # set title with θ dynamically
     ax.title = L"Refractive model, $\beta = %$β$"
@@ -89,6 +93,7 @@ end
 begin
     J = -1
     R = 3
+    I = 0
     βs = range(0, 50, 101)
     θs = range(-1,1, 101)
     ic = quiet_ic_mf(R, 0)
@@ -96,13 +101,12 @@ begin
     nequi, nmeas = 2000, 1000
     
     # run the simulations
-    meas = zeros(length(θs), length(βs), 8)
+    meas = zeros(length(θs), length(βs), 12)
     Threads.@threads for (i,j) in ProgressBar(idx_combinations([θs, βs]))    
-        dm = RefractiveIMF(ic, J, θs[i], βs[j])
+        dm = RefractiveIMF(ic, J, θs[i], βs[j], I)
         forward!(dm, nequi)
         meas[i,j,:] = stats!(dm, nmeas, ft=true)
     end
-
 end
 begin
     # plot
@@ -126,7 +130,12 @@ begin
     # fxd distance
     ax = Axis(f[4,1], ylabel=L"\theta", xlabel=L"\beta")
     hm = heatmap!(ax, βs, θs, meas[:,:,4]', colormap = :viridis)
-    Colorbar(f[4,2], hm, label = "Fxd distance")
+    Colorbar(f[4,2], hm, label = "Fxd")
+
+    # kuramoto
+    ax = Axis(f[5,1], ylabel=L"\theta", xlabel=L"\beta")
+    hm = heatmap!(ax, βs, θs, meas[:,:,12]', colormap = :viridis)
+    Colorbar(f[5,2], hm, label = "phiK std")
 
     save(plotsdir("refractive-mf-stats-plane-mean.pdf"), f)
     display(f)
@@ -518,10 +527,10 @@ begin
     ic = spike_ic_mf(0, Q)
     #ic = quiet_ic_mf(0, Q)
 
-    nequi, nmeas = 1000, 1000
+    nequi, nmeas = 5000, 1000
     
     # run the simulations
-    meas = zeros(length(βs), 8)
+    meas = zeros(length(βs), 12)
     Threads.@threads for (i,) in ProgressBar(idx_combinations([βs]))    
             dm = IntegratorIMF(ic, J, θ, βs[i], I, C)
             forward!(dm, nequi)
@@ -531,15 +540,16 @@ begin
     # plot
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"β", ylabel=L"n")
-    colors = [:black, :red, :blue, :green]
-    labels = ["Firing", "Refractive", "Ready", "Fxp distance"]
-    for i in [1,4]
+    colors = [:black, :red, :blue, :green, :orange, :purple]
+    labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
+    for i in [1,4,5,6]
         lines!(ax, βs, meas[:,i], color = colors[i], label = labels[i])
-        lines!(ax, βs, meas[:,i]+meas[:,i+4], color = colors[i], linestyle = :dash)
-        lines!(ax, βs, meas[:,i]-meas[:,i+4], color = colors[i], linestyle = :dash)
+        lines!(ax, βs, meas[:,i]+meas[:,i+6], color = colors[i], linestyle = :dash)
+        lines!(ax, βs, meas[:,i]-meas[:,i+6], color = colors[i], linestyle = :dash)
     end
     # set title with θ dynamically
     ax.title = L"Integrator model, $\theta = %$θ$"
+    #ylims!(ax, 0, 1)
     axislegend(ax, position = :lt)
     #save(plotsdir("stability-line.pdf"), f)
     display(f)
@@ -559,7 +569,7 @@ begin
     nequi, nmeas = 10000, 2000
     
     # run the simulations
-    meas = zeros(length(θs), 8)
+    meas = zeros(length(θs), 10)
     Threads.@threads for (i,) in ProgressBar(idx_combinations([θs]))    
         dm = IntegratorIMF(ic, J, θs[i], β, I, C)
         forward!(dm, nequi)
@@ -569,12 +579,12 @@ begin
     # plot
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"θ", ylabel=L"n")
-    colors = [:black, :red, :blue, :green]
-    labels = ["Firing", "Refractive", "Ready", "Fxp distance"]
-    for i in [1,4]
+    colors = [:black, :red, :blue, :green, :orange]
+    labels = ["Firing", "Refractive", "Ready", "Fxp", "Kuramoto"]
+    for i in [1,4,5]
         lines!(ax, θs, meas[:,i], color = colors[i], label = labels[i])
-        lines!(ax, θs, meas[:,i]+meas[:,i+4], color = colors[i], linestyle = :dash)
-        lines!(ax, θs, meas[:,i]-meas[:,i+4], color = colors[i], linestyle = :dash)
+        lines!(ax, θs, meas[:,i]+meas[:,i+5], color = colors[i], linestyle = :dash)
+        lines!(ax, θs, meas[:,i]-meas[:,i+5], color = colors[i], linestyle = :dash)
     end
     # set title with θ dynamically
     ax.title = L"Integrator model, $\beta = %$β$"
@@ -695,4 +705,63 @@ begin
     axislegend(ax, position = :lt)
     #save(plotsdir("stability-line.pdf"), f)
     display(f)
+end
+
+# MF: mean, std in β-θ plane
+begin
+    J = 0.1
+    βs = range(0, 50, 51)
+    θs = range(0.5, 1.5, 51)
+    I = 0.1
+    α = 0.1
+    Q = 50
+    ic = spike_ic_mf(0, Q)
+    C = exponential_weights(Q, α)
+
+    nequi, nmeas = 10000, 10000
+end
+begin
+    # run the simulations
+    meas = zeros(length(θs), length(βs), 12)
+    Threads.@threads for (i,j) in ProgressBar(idx_combinations([θs, βs]))    
+        dm = IntegratorIMF(ic, J, θs[i], βs[j], I, C)
+        forward!(dm, nequi)
+        meas[i,j,:] = stats!(dm, nmeas, ft=true)
+    end
+end
+begin  # plot 
+    f = Figure(size = (800, 1600))
+
+    # activity
+    ax = Axis(f[1,1], ylabel=L"\theta")
+    hm = heatmap!(ax, βs, θs, meas[:,:,1]', colormap = :viridis)
+    Colorbar(f[1,2], hm, label = "Activity")
+
+    # refractive
+    ax = Axis(f[2,1], ylabel=L"\theta")
+    hm = heatmap!(ax, βs, θs, meas[:,:,2]', colormap = :viridis)
+    Colorbar(f[2,2], hm, label = "Refractive")
+
+    # ready
+    ax = Axis(f[3,1], ylabel=L"\theta")
+    hm = heatmap!(ax, βs, θs, meas[:,:,3]', colormap = :viridis)
+    Colorbar(f[3,2], hm, label = "Ready")
+
+    # fxd distance
+    ax = Axis(f[4,1], ylabel=L"\theta", xlabel=L"\beta")
+    hm = heatmap!(ax, βs, θs, meas[:,:,4]', colormap = :viridis)
+    Colorbar(f[4,2], hm, label = "Fxd")
+
+    # kuramoto r
+    ax = Axis(f[5,1], ylabel=L"\theta", xlabel=L"\beta")
+    hm = heatmap!(ax, βs, θs, meas[:,:,5]', colormap = :viridis)
+    Colorbar(f[5,2], hm, label = "rK")
+
+    # kuramoto phi
+    ax = Axis(f[6,1], ylabel=L"\theta", xlabel=L"\beta")
+    hm = heatmap!(ax, βs, θs, meas[:,:,12]', colormap = :viridis)
+    Colorbar(f[6,2], hm, label = "phiK std")
+
+    save(plotsdir("integrator-mf-stats-plane-mean.pdf"), f)
+    display(f) 
 end

@@ -74,11 +74,16 @@ function RefractiveIMF(x0::Vector, J::Real, θ::Real, β::Real, I::Real) :: Disc
             x[1],               # firing neurons
             sum(x[2:p[:R]]),    # refractory neurons
             x[p[:R]+1],         # ready to fire neurons
-            norm(x - pc[:fxp])  # distance to fixed point
+            norm(x - pc[:fxp]), # distance to fixed point
+            abs(x'*pc[:ang]),   # kuramoto coherence
+            angle(x'*pc[:ang])  # kuramoto phase
             ]
-    nft = 4
+    nft = 6
     # precompute stuff
-    pc = Dict(:fxp => refractive_fxp(J,θ,β,I,R))
+    pc = Dict(
+        :fxp => refractive_fxp(J,θ,β,I,R),
+        :ang => exp.(im.*range(0, stop=2*pi, length=R+1))
+        )
     return DiscreteMap{R+1}("Refractive Model",
         _refractive_ising_map, x0, x0, p, ft, nft, pc)
 end
@@ -179,11 +184,16 @@ function IntegratorIMF(x0::Vector, J::Real, θ::Real, β::Real,
             x[1],               # firing neurons
             sum(x[1:p[:Q]]),    # unsaturated neurons
             sum(x[p[:Q]+1]),    # saturated neurons
-            norm(x - pc[:fxp])  # distance to fixed point
+            norm(x - pc[:fxp]), # distance to fixed point
+            abs(x'*pc[:ang]),   # kuramoto coherence
+            angle(x'*pc[:ang])  # kuramoto phase
             ]
-    nft = 4
+    nft = 6
     # precompute stuff
-    pc = Dict(:fxp => integrator_fxp(J, θ, β, I, C))
+    pc = Dict(
+        :fxp => integrator_fxp(J, θ, β, I, C),
+        :ang => exp.(im.*range(0, stop=2*pi, length=Q+1))
+    )
     return DiscreteMap{Q+1}("Integrator IMF Model",
         integrator_map, x0, x0, p, ft, nft, pc)
 end
@@ -291,11 +301,16 @@ function CombinedIMF(x0::Vector, J::Real, θ::Real, β::Real,
             x[1],               # firing neurons
             sum(x[2:p[:R]]),    # refractory neurons
             sum(x[p[:R]+1:end]),# ready to fire neurons
-            norm(x - pc[:fxp])  # distance to fixed point
+            norm(x - pc[:fxp]), # distance to fixed point
+            abs(x'*pc[:ang]),   # kuramoto coherence
+            angle(x'*pc[:ang])  # kuramoto phase
             ]
     nft = 4
     # precompute stuff
-    pc = Dict(:fxp => zeros(R+Q+1))#combined_fxp(J, θ, β, I, R, C))
+    pc = Dict(
+        :fxp => zeros(R+Q+1),#combined_fxp(J, θ, β, I, R, C))
+        :ang => exp.(im.*range(0, stop=2*pi, length=Q+R+1))
+    )
     return DiscreteMap{R+Q+1}("Combined IMF Model",
         combined_map, x0, x0, p, ft, nft, pc)
 end

@@ -71,13 +71,16 @@ function n2N(n::Vector, N_len::Int)
     N[N_len] = sum(n.>=N_len-1)
     return N./length(n)
 end
-function n2N(s::IsingModel)
+function Ncap(s::IsingModel) :: Integer
     if s.R == 0 && s.Q == 1 N_len = 1
     elseif s.R == 0 && s.Q > 0 N_len = s.Q+1
     elseif s.R > 0 && s.Q == 1 N_len = s.R+1
     else N_len = s.R+s.Q+1
     end
-    return n2N(s.n, N_len)
+    return N_len
+end
+function n2N(s::IsingModel)
+    return n2N(s.n, Ncap(s))
 end
 
 function n2a(n::Vector, Q::Int)
@@ -89,6 +92,23 @@ function n2a(s::IsingModel)
     a = zeros(s.Q)
     for i in 1:s.Q a[i] = sum(s.n.==i-1) end
     return a./length(s.n)  
+end
+function n2img(s::IsingModel, clamp::Bool=true)
+    @assert isinteger(sqrt(length(s.n))) "n2img: n is not a square"
+    side = Int(sqrt(length(s.n)))
+    img = reshape(s.n, (side, side))
+    if clamp
+        return clamp.(img, 0, Ncap(s))./Ncap(s)  
+    else
+        return img
+    end
+end
+function N2kuramoto(N::Vector) :: Complex
+    angles = range(0, stop=2*pi, length=length(N))
+    return N'*exp.(im.*angles)
+end
+function N2kuramoto(s::IsingModel)
+    return N2kuramoto(n2N(s))
 end
 
 # Constructors
@@ -266,19 +286,22 @@ end
 
 function network_traj!(s::IsingModel, nsteps :: Int; parallel :: Bool)::Matrix{Float64}
     if s.R == 0 && s.Q == 1 
-        fxp = vanilla_ising_fxp(s.J, s.θ, s.β)
+        fxp = vanilla_ising_fxp(s.J, s.θ, s.β, s.I)
         idxs = [1:1]
     elseif s.R == 0 && s.Q > 0 
-        fxp = integrator_ising_fxp(s.J, s.θ, s.β, s.C)
+        fxp = integrator_fxp(s.J, s.θ, s.β, s.I, s.C)
+        ang = exp.(im.*range(0, stop=2*pi, length=Q+1))
         idxs = [1:1, 2:s.Q, s.Q+1:s.Q+1]
     elseif s.R > 0 && s.Q == 1 
-        fxp = refractive_ising_fxp(s.J, s.θ, s.β, s.R)
+        fxp = refractive_fxp(s.J, s.θ, s.β, s.I, s.R)
+        ang = exp.(im.*range(0, stop=2*pi, length=R+1))
         idxs = [1:1, 2:s.R, s.R+1:s.R+1]
     else 
-        fxp = complete_ising_fxp(s.J, s.θ, s.β, s.R, s.C)
+        fxp = complete_fxp(s.J, s.θ, s.β, s.I, s.R, s.C)
+        ang = exp.(im.*range(0, stop=2*pi, length=R+Q+1))
         idxs = [1:1, 2:s.R, s.R+1:s.R+s.Q, s.R+s.Q+1:s.R+s.Q+1]
     end
-    traj = zeros(Float64, nsteps, length(idxs)+1)
+    traj = zeros(Float64, nsteps, length(idxs)+2)
     if parallel
         for i in 1:nsteps
             parallel_update!(s)
@@ -286,7 +309,8 @@ function network_traj!(s::IsingModel, nsteps :: Int; parallel :: Bool)::Matrix{F
             for (j, idx) in enumerate(idxs)
                 traj[i,j] = sum(N[idx])
             end
-            traj[i,end] = norm(fxp - N)
+            traj[i,end-1] = norm(fxp - N)
+            traj[i,end] = abs(N'*ang)
         end
     else
         for i in 1:nsteps
@@ -295,7 +319,8 @@ function network_traj!(s::IsingModel, nsteps :: Int; parallel :: Bool)::Matrix{F
             for (j, idx) in enumerate(idxs)
                 traj[i,j] = sum(N[idx])
             end
-            traj[i,end] = norm(fxp - N)
+            traj[i,end-1] = norm(fxp - N)
+            traj[i,end] = abs(N'*ang)
         end
     end
     return traj

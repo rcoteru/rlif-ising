@@ -7,7 +7,7 @@ begin # load project environment
     include(srcdir("auxiliary.jl"));  
     using ProgressBars
     using CairoMakie
-    using FFTW   
+    using FFTW
 end
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -202,24 +202,26 @@ begin
     θ = 0
     β = 10
     R = 3
+    I = 0.1
     N = 200
 
     nequi = 1000
-    nmeas = 1000
+    nmeas = 2000
 
     ic = spike_ic_sm(N)
-    sm = RefractiveSM(J, θ, β, ic, R)
+    sm = RefractiveSM(J, θ, β, I, ic, R)
     
     forward!(sm, nequi)
-    traj = adv_traj!(sm, nmeas, parallel=true)
+    traj = network_traj!(sm, nmeas, parallel=true)
 
-    t0, tf = 1, 30
+    t0, tf = 1, 500
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"t", ylabel=L"n")
-    lines!(ax, t0:tf, traj[t0:tf,1], label="Firing")
-    lines!(ax, t0:tf, traj[t0:tf,2], label="Refractive")
-    lines!(ax, t0:tf, traj[t0:tf,3], label="Ready")
-    axislegend(ax, position = :lt)
+    labels = ["Firing", "Refractive", "Ready", "Fxp", "Kuramoto"]
+    colors = [:black, :red, :blue, :green, :orange]
+    for i in [1,4,5]
+        lines!(ax, t0:tf, traj[t0:tf,i], label=labels[i], color = colors[i])
+    end
 
     ax.title = L"Refractive model, $\theta = %$θ; \beta = %$β; R = %$R$"
     display(f)
@@ -636,16 +638,14 @@ begin
 end
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # Integrator Model
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 # MF: Time series 
 begin
-    J = 0.16
+    J = 0.1
     θ = 1
-    β = 12
+    β = 20
     I = 0.1
     α = 0.1
     Q = 50
@@ -660,11 +660,11 @@ begin
     forward!(dm, nequi)
     traj = trajectory!(dm, nmeas, ft=true)
 
-    t0, tf = 1, 1000
+    t0, tf = 1, 2000
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"t", ylabel=L"n")
-    labels = ["Firing", "Refractive", "Ready"]
-    for i in [1]
+    labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
+    for i in [5,6]
         lines!(ax, t0:tf, traj[t0:tf,i], label=labels[i])
     end
     axislegend(ax, position = :lt)
