@@ -1,10 +1,9 @@
 include(srcdir("spin-model.jl"));
 include(srcdir("auxiliary.jl"));
 
-# IC/Auxiliary tests
+# Initial Conditions
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-#TODO extend to auxiliary conversions
-@testset "IC/Auxiliary" begin
+@testset "Initial Conditions" begin
     N = 100
     # Test spike initial conditions
     n = spike_ic_sm(N)
@@ -16,6 +15,63 @@ include(srcdir("auxiliary.jl"));
     @test length(n) == N
     @test all(n .>= 0)
     @test all(n .<= 20)
+end
+
+# Conversions
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+@testset "Conversions" begin
+    # s2a
+    @test s2a(ones(Int, 10)) == 1
+    @test s2a(-1*ones(Int, 10)) == 0
+    @test s2a([1, -1, -1, -1, -1]) == 0.2
+
+    # n2s
+    n = [1, 1, 0, 0, 0]
+    @test n2s(n) == [-1, -1, 1, 1, 1]
+
+    # s2n
+    s = [1, 1, -1, -1, 1]
+    @test s2n(s) == [0, 0, 1, 1, 0]
+
+    # S2n
+    s = [
+        [-1, 1, -1, -1, -1]';
+        [-1, -1, 1, 1, -1]';
+        [-1, -1, -1, 1, 1]'
+        ]
+    @test S2n(s, 10) == [10,2,1,0,0]
+    @test S2n(s, 10, false) == [10,0,1,1,2]
+
+    # n2s
+    n = [1, 1, 2, 0, 0]
+    @test n2s(n) == [-1, -1, -1, 1, 1]
+
+    # n2a
+    n = [1, 1, 2, 0, 0]
+    @test n2a(n, 1) == [0.4]
+    @test n2a(n, 3) == [0.4,0.4,0.2]
+    @test n2a(n, 5) == [0.4,0.4,0.2,0.0,0.0]
+
+    # n2N
+    n = [1, 1, 2, 0, 0]
+    @test n2N(n, 2) == [0.4, 0.6]
+    @test n2N(n, 3) == [0.4, 0.4, 0.2]
+    @test n2N(n, 4) == [0.4, 0.4, 0.2, 0]
+
+    # s2N
+    s = [
+        [-1, 1, -1, -1, -1]';
+        [-1, -1, 1, 1, -1]';
+        [-1, -1, -1, 1, 1]'
+        ]
+    @test S2N(s, 3) == [0.4, 0.2, 0.4]
+    @test S2N(s, 4) == [0.4, 0.2, 0.2, 0.2]
+    @test S2N(s, 5) == [0.4, 0.2, 0.2, 0.0, 0.2]
+
+    @test S2N(s, 3, false) == [0.2, 0.4, 0.4]
+    @test S2N(s, 4, false) == [0.2, 0.4, 0.2, 0.2]
+    @test S2N(s, 5, false) == [0.2, 0.4, 0.2, 0.0, 0.2]
 end
 
 # Constructors
@@ -88,6 +144,50 @@ end
     @test sm.I == I
 
 end
+
+# Metrics
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+@testset "Metrics" begin
+    
+    N = 100
+    Q = 20
+    J = 1
+    R = 5
+    I = 0.1
+    C = exponential_weights(Q, 0.1)
+    n = spike_ic_sm(N)
+    n2 = [zeros(20)..., ones(20)..., 
+        2*ones(20)..., 30*ones(40)...]
+
+    # Ncap
+    sm = VanillaSM(J, 0, 0, I, n)
+    @test Ncap(sm) == 1
+    sm = RefractiveSM(J, 0, 0, I, n, R)
+    @test Ncap(sm) == R+1
+    sm = IntegratorSM(J, 0, 0, I, n, C)
+    @test Ncap(sm) == Q+1
+    sm = CombinedSM(J, 0, 0, I, n, R, C)
+    @test Ncap(sm) == R+Q+1
+    
+    # n2a
+    sm = CombinedSM(J, 0, 0, I, n, R, C)
+    @test n2a(sm) == [1, zeros(Q-1)...] 
+    @test n2a(sm.n, sm.Q) == [1, zeros(Q-1)...]
+    sm = CombinedSM(J, 0, 0, I, n2, R, C)
+    @test n2a(sm) == [0.2, 0.2, 0.2, zeros(Q-3)...]
+    @test n2a(sm) == n2a(sm.n, sm.Q)
+
+    # n2N
+    sm = CombinedSM(J, 0, 0, I, n, R, C)
+    @test n2N(sm) == [1, zeros(R+Q)...]
+    @test n2N(sm.n, Ncap(sm)) == [1, zeros(R+Q)...]
+    sm = CombinedSM(J, 0, 0, I, n2, R, C)
+    @test n2N(sm) == [0.2, 0.2, 0.2, zeros(R+Q-3)..., 0.4]
+    @test n2N(sm) == n2N(sm.n, Ncap(sm)) 
+
+end
+
 
 # Current/Probability Functions
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #

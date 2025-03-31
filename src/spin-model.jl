@@ -60,17 +60,48 @@ random_ic_sm(N::Int, Nmax::Int) :: Vector{Int} = rand(
 function s2a(s::Vector)::Real
     return mean(s)/2+0.5
 end
-
+function s2n(s::Vector)::Vector
+    return map(s -> s == 1 ? 0 : 1, s)
+end
+function S2n(s::Matrix, ncap ::Int, rev::Bool=true)::Vector
+    n = zeros(Int, size(s, 2))
+    for i in 1:size(s, 2)
+        if rev
+            idx = findfirst(reverse(s[:,i].==1))
+        else
+            idx = findfirst(s[:,i].==1)
+        end
+        n[i] = (isnothing(idx) ? ncap : idx[1]-1)
+    end
+    return n
+end
 function n2s(n::Vector)::Vector
     return map(n -> n == 0 ? 1 : -1, n) 
 end
+function n2S(n::Vector, ncap::Int)::Matrix
+    S = -1*ones(Int8, length(n), ncap)
+    [S[i, n[i]+1] = 1 for i in 1:length(n)]
+    return S
+end
 
+function n2a(n::Vector, Q::Int)
+    a = zeros(Q)
+    for i in 1:Q a[i] = sum(n.==i-1) end
+    return a./length(n)
+end
 function n2N(n::Vector, N_len::Int)
     N = zeros(N_len)
     for i in 1:N_len-1 N[i] = sum(n.==i-1) end
     N[N_len] = sum(n.>=N_len-1)
     return N./length(n)
 end
+function S2N(S::Matrix, N_len::Int, rev::Bool=true)::Vector
+    n2N(S2n(S, N_len, rev), N_len)
+end
+
+# Metrics
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
 function Ncap(s::IsingModel) :: Integer
     if s.R == 0 && s.Q == 1 N_len = 1
     elseif s.R == 0 && s.Q > 0 N_len = s.Q+1
@@ -79,19 +110,13 @@ function Ncap(s::IsingModel) :: Integer
     end
     return N_len
 end
-function n2N(s::IsingModel)
-    return n2N(s.n, Ncap(s))
-end
-
-function n2a(n::Vector, Q::Int)
-    a = zeros(Q)
-    for i in 1:Q a[i] = sum(n.==i-1) end
-    return a./length(n)
-end
 function n2a(s::IsingModel)
     a = zeros(s.Q)
     for i in 1:s.Q a[i] = sum(s.n.==i-1) end
     return a./length(s.n)  
+end
+function n2N(s::IsingModel)
+    return n2N(s.n, Ncap(s))
 end
 function n2img(s::IsingModel, clamp::Bool=true)
     @assert isinteger(sqrt(length(s.n))) "n2img: n is not a square"
@@ -102,13 +127,6 @@ function n2img(s::IsingModel, clamp::Bool=true)
     else
         return img
     end
-end
-function N2kuramoto(N::Vector) :: Complex
-    angles = range(0, stop=2*pi, length=length(N))
-    return N'*exp.(im.*angles)
-end
-function N2kuramoto(s::IsingModel)
-    return N2kuramoto(n2N(s))
 end
 
 # Constructors
@@ -147,6 +165,26 @@ end
 function local_currents(s::IsingModel)::Vector{Float64}
     cτ = [local_current(s, τ) for τ in 1:s.Q]
     return [cτ[min(max(1,n+1-s.R), s.Q)] for n in s.n]
+end
+
+function kuramoto_phases(s::IsingModel)::Vector{Float64}
+    if s.θ > 0
+        currs = [local_current(s, τ) for τ in 1:s.Q]
+        phases = clamp.(currs, 0, s.θ)/s.θ.*(2*pi)
+        return [zeros(s.R)..., phases..., phases[s.Q]]
+    elseif s.θ < 0
+        currs = [local_current(s, τ) for τ in 1:s.Q]
+        phases = clamp.(currs, s.θ, 0)/s.θ.*(2*pi)
+        return [zeros(s.R)..., phases..., phases[s.Q]]
+    else
+        return zeros(s.R+s.Q+1)
+    end    
+end
+
+function kuramoto(s::IsingModel)::Complex
+    phases = kuramoto_phases(s)
+    probs  = n2N(s)
+    return probs'*exp.(im.*phases)
 end
 
 function fprob(s::IsingModel)::Vector{Float64}
@@ -267,7 +305,7 @@ function forward!(s::IsingModel, nsteps:: Int; parallel :: Bool = false)::Nothin
     return nothing
 end
 
-function spinwise_traj!(s::IsingModel, nsteps::Int; parallel :: Bool)
+function spinwise_traj!(s::IsingModel, nsteps::Int; parallel :: Bool = true)
     sps, lcs = zeros(Int8, nsteps, s.N), zeros(Float64, nsteps, s.N)
     sps[1,:], lcs[1,:] = s.s[:], local_currents(s)
     if parallel
@@ -283,6 +321,8 @@ function spinwise_traj!(s::IsingModel, nsteps::Int; parallel :: Bool)
     end
     return sps, lcs
 end
+
+
 
 function network_traj!(s::IsingModel, nsteps :: Int; parallel :: Bool)::Matrix{Float64}
     if s.R == 0 && s.Q == 1 
