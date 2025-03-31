@@ -147,7 +147,6 @@ end
 
 # Metrics
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-
 @testset "Metrics" begin
     
     N = 100
@@ -187,7 +186,6 @@ end
     @test n2N(sm) == n2N(sm.n, Ncap(sm)) 
 
 end
-
 
 # Current/Probability Functions
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #

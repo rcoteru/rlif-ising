@@ -89,10 +89,8 @@ function RefractiveIMF(x0::Vector, J::Real, θ::Real, β::Real, I::Real) :: Disc
 end
 
 function refractive_fdist_traj!(s::DiscreteMap, meas_stp::Int)
-
     traj_size = meas_stp + 2*s.p[:R]
     tf = trajectory!(s, traj_size, ft=false)[:,1]
-
     R, scan = s.p[:R], s.p[:R]
     fdist = zeros(Float64, (meas_stp, 2, R+1))
     for i in R+1:traj_size-scan
@@ -106,7 +104,7 @@ end
 
 function refractive_entropy!(s::DiscreteMap, meas_stp::Int)
     fdist = refractive_fdist_traj!(s, meas_stp+2)
-    S = zeros(meas_stp,2)
+    S, R = zeros(meas_stp,2), s.p[:R]
     for i in 1:meas_stp
         # p(n) / p(\hat{n})
         Nf = fdist[i,1,:]
