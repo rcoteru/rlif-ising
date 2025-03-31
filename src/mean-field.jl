@@ -159,9 +159,6 @@ function integrator_fxp_transcendental(x, J, θ, β, I, C) :: Real
     ps = 0.5 .- 0.5*tanh.(currs)
     return (x + x*sum([prod(ps[1:τ-1]) for τ in 2:Q]) 
         +  x*prod(ps[1:Q])*exp(-2*currs[Q]) - 1)
-    #p = integrator_fxp_probs(x, J, θ, β, I, C)
-    # return (1/x - 1 - sum([prod(p[2,1:τ-1]) for τ in 2:Q]) 
-    #    - p[2,Q]/p[1,Q]*prod(p[2,1:Q]))
 end
 
 function integrator_fxp(J, θ, β, I, C) :: Vector{Float64}

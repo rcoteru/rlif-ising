@@ -7,6 +7,7 @@ begin # load project environment
     include(srcdir("auxiliary.jl"));  
     using ProgressBars
     using CairoMakie
+    CairoMakie.activate!()
     using FFTW
 end
 
@@ -779,15 +780,15 @@ end
 
 # MF: Time series
 begin
-    J = 1
-    θ = 0.1
-    β = 5
+    J = 0.2
+    θ = 1
+    β = 10
     I = 0.1
     R = 3
     Q = 50
     C = exponential_weights(Q, 0.1)
 
-    nequi, nmeas = 1000, 1000
+    nequi, nmeas = 10000, 1000
 
     ic = random_ic_mf(R, Q)
     dm = CombinedIMF(ic, J, θ, β, I, C)
@@ -798,9 +799,10 @@ begin
     t0, tf = 1, 30
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"t", ylabel=L"n")
-    labels = ["Firing", "Refractive", "Ready"]
-    for i in [1]
-        lines!(ax, t0:tf, traj[t0:tf,i], label=labels[i])
+    labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
+    colors = [:black, :red, :blue, :green, :orange, :purple]
+    for i in [1,4,5]
+        lines!(ax, t0:tf, traj[t0:tf,i], label=labels[i], color = colors[i])
     end
     axislegend(ax, position = :lt)
 

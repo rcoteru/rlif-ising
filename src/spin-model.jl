@@ -333,18 +333,14 @@ end
 
 function fdist_traj!(sm::IsingModel, nsteps::Int; parallel :: Bool = true)
     # get trajectory
-    sps, _ = spinwise_traj!(sm, nsteps, parallel=parallel)
-    
-    # convert to p(n) and p(\hat{n})
     scan = Ncap(sm)-1
+    traj_size = nsteps + 2*scan
+    sps, _ = spinwise_traj!(sm, traj_size, parallel=parallel)
+    # convert to p(n) and p(\hat{n})
     fdist = zeros(nsteps, 2, Ncap(sm))
-    #adist = zeros(meas_stp-2*Ncap(sm), 2, Ncap(sm))
-    # for i in scan+1:meas_stp-scan-2
-    for i in scan+1:nsteps+2*Ncap(sm)-scan-2
+    for i in scan+1:nsteps+scan
         fdist[i-scan, 1, :] = S2N(sps[i-scan:i,:], Ncap(sm), true)
         fdist[i-scan, 2, :] = S2N(sps[i:i+scan,:], Ncap(sm), false)
-    #    adist[i-scan, 1, :] = reverse(mean(sps[i-scan:i,:], dims = 2)/2 .+ 0.5)
-    #    adist[i-scan, 2, :] = mean(sps[i:i+scan,:], dims = 2)/2 .+ 0.5
     end
     return fdist
 end
@@ -401,9 +397,9 @@ end
 
 function entropy!(sm::IsingModel, meas_stp::Int, parallel :: Bool = true)
     #get trajectory
-    fdist = fdist_traj!(sm, meas_stp, parallel=parallel)
+    fdist = fdist_traj!(sm, meas_stp+2, parallel=parallel)
     # calculate entropy
-    S = zeros(meas_stp-2*Ncap(sm)-2, 2)
+    S = zeros(meas_stp, 2)
     for i in 1:meas_stp-2*Ncap(sm)-2
         Nf = fdist[i, 1, :]
         Nb = fdist[i+2, 2, :] 
@@ -411,8 +407,8 @@ function entropy!(sm::IsingModel, meas_stp::Int, parallel :: Bool = true)
         hf = [sm.β*(local_current(sm.J,τ,N2a(Nf,sm.Q),sm.C,sm.I)-sm.θ) for τ in 1:sm.Q]
         hb = [sm.β*(local_current(sm.J,τ,N2a(Nb,sm.Q),sm.C,sm.I)-sm.θ) for τ in 1:sm.Q]
 
-        S[i,1] = Nf[1:Q]'*(-hf.*tanh.(hf).+log.(2 .*cosh.(hf)))
-        S[i,2] = Nb[1:Q]'*(-hb.*tanh.(hf).+log.(2 .*cosh.(hb)))
+        S[i,1] = Nf[1:sm.Q]'*(-hf.*tanh.(hf).+log.(2 .*cosh.(hf)))
+        S[i,2] = Nb[1:sm.Q]'*(-hb.*tanh.(hf).+log.(2 .*cosh.(hb)))
     end
     return S
 end
