@@ -16,9 +16,9 @@ end
 # Parameters
 begin
     N = 900
-    J = 0.1
+    J = 0.2
     θ = 1
-    β = 20
+    β = 10
     I = 0.1
     R = 3
     Q = 50
@@ -26,12 +26,7 @@ begin
     n = random_ic_sm(N, Q)
     C = exponential_weights(Q, α)
     sm = CombinedSM(J, θ, β, I, n, R, C)
-
-    if R>0
-        dm = CombinedIMF(n2N(sm), J, θ, β, I, C)
-    else
-        dm = IntegratorIMF(n2N(sm), J, θ, β, I, C)
-    end
+    dm = CombinedIMF(n2N(sm), J, θ, β, I, C)
 
     tmax = 300
     begin
@@ -41,10 +36,18 @@ begin
         mf_dist = Observable(Vector(dm.x))
         sm_dist = Observable(n2N(sm))
 
-        mf_ikur = dm.x'*dm.pc[:ang] 
-        mf_kur = Observable(Point2f[(real(mf_ikur), imag(mf_ikur))])
-        sm_ikur = N2kuramoto(sm)
-        sm_kur = Observable(Point2f[(real(sm_ikur), imag(sm_ikur))])
+        phase = combined_map_phase(dm.x, dm.p)
+        nphase = kuramoto_phases(sm)
+        mf_phase = Observable(combined_map_phase(dm.x, dm.p))
+        sm_phase = Observable(nphase)
+
+        mf_ikur = dm.x'*exp.(im.*phase)
+        mf_kur = Observable([(real(mf_ikur), imag(mf_ikur))])
+        sm_ikur = kuramoto(sm)
+        sm_kur = Observable([(real(sm_ikur), imag(sm_ikur))])
+
+        sw_phases = [exp(im*nphase[min(n+1, Q)]) for n in sm.n]
+        sm_swkur = Observable([Point2f(real(sp), imag(sp)) for sp in sw_phases])
 
         fig = Figure(size = (1200, 400))
 
@@ -65,19 +68,22 @@ begin
         xlims!(ax, 0,Ncap(sm)-1)
         ylims!(ax, 0, 1)
 
-        ax = Axis(fig[3, 2], title=L"cos(θ(n))", xlabel=L"n")
-        lines!(ax, 0:Ncap(sm)-1, cos.(range(0, 2*pi, length=Ncap(sm))))
-        lines!(ax, 0:length(C)-1, C, color = :red)
+        ax = Axis(fig[3, 2], title=L"θ(n)", xlabel=L"n")
+        lines!(ax, 0:Ncap(sm)-1, mf_phase, color = :red)
+        lines!(ax, 0:Ncap(sm)-1, sm_phase, color = :blue)
+        #lines!(ax, 0:length(C)-1, C, color = :red)
         xlims!(ax, 0,Ncap(sm)-1)
-        ylims!(ax, -1, 1)
+        ylims!(ax, 0, 2*pi)
 
         ax = Axis(fig[2:3, 3], title=L"K_t", xlabel=L"t")
         
         θr = range(0, 2*pi, length=100)
         lines!(ax, real(exp.(im.*θr)), imag(exp.(im.*θr)), color = :black, linewidth = 0.5,
             linestyle = :dash)
-        scatter!(ax, mf_kur, color = :red,  markersize = 5)
-        scatter!(ax, sm_kur, color = :blue, markersize = 5)
+        scatter!(ax, sm_swkur, color = :black, alpha = 0.1, markersize = 6)
+        scatter!(ax, mf_kur, color = :red,  markersize = 10)
+        scatter!(ax, sm_kur, color = :blue, markersize = 10)
+        
         xlims!(ax, -1,1)
         ylims!(ax, -1,1)
 
@@ -101,16 +107,17 @@ begin
         mf_traj[] = push!(mf_traj[], dm.x[1])
         sm_traj[] = push!(sm_traj[], s2a(sm.s))
         
-        sm_ikur = N2kuramoto(sm)
-        sm_kur[] = push!(sm_kur[], Point2f(real(sm_ikur), imag(sm_ikur)))
-        mf_ikur = dm.x'*dm.pc[:ang]
-        mf_kur[] = push!(mf_kur[], Point2f(real(mf_ikur), imag(mf_ikur)))
+        sm_ikur = kuramoto(sm)
+        nphase = kuramoto_phases(sm)
+        sw_phases = [exp(im*nphase[min(n+1, Q)]) for n in sm.n]
+        sm_swkur[] = [Point2f(real(sp), imag(sp)) for sp in sw_phases]
+        sm_kur[] = [(real(sm_ikur), imag(sm_ikur))]
+        sm_phase[] = nphase
 
-        if length(sm_kur[]) > 50
-            sm_kur[] = sm_kur[][end-49:end]
-            mf_kur[] = mf_kur[][end-49:end]
-        end
+        phase = combined_map_phase(dm.x, dm.p)
+        mf_phase[] = phase
+        mf_ikur = dm.x'*exp.(im.*phase)
+        mf_kur[] = [(real(mf_ikur), imag(mf_ikur))]
     end
     run(`open $fname`)
 end
-

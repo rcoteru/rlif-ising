@@ -89,6 +89,10 @@ function n2a(n::Vector, Q::Int)
     for i in 1:Q a[i] = sum(n.==i-1) end
     return a./length(n)
 end
+function N2a(N::Vector, Q::Int)
+    @assert length(N) > Q
+    return N[1:Q]
+end
 function n2N(n::Vector, N_len::Int)
     N = zeros(N_len)
     for i in 1:N_len-1 N[i] = sum(n.==i-1) end
@@ -159,8 +163,13 @@ end
 # Current/Probability Functions
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
+function local_current(J::Real, τ::Int, 
+    a::Vector, C::Vector, I::Real)::Float64 
+    return C[1:τ]'*(J*a[1:τ].+I)
+end
 function local_current(s::IsingModel, τ::Int)::Float64
-    return s.C[1:τ]'*(s.J*s.a[1:τ].+s.I)
+    #return s.C[1:τ]'*(s.J*s.a[1:τ].+s.I)
+    return local_current(s.J, τ, s.a, s.C, s.I)
 end
 function local_currents(s::IsingModel)::Vector{Float64}
     cτ = [local_current(s, τ) for τ in 1:s.Q]
@@ -322,7 +331,23 @@ function spinwise_traj!(s::IsingModel, nsteps::Int; parallel :: Bool = true)
     return sps, lcs
 end
 
-
+function fdist_traj!(sm::IsingModel, nsteps::Int; parallel :: Bool = true)
+    # get trajectory
+    sps, _ = spinwise_traj!(sm, nsteps, parallel=parallel)
+    
+    # convert to p(n) and p(\hat{n})
+    scan = Ncap(sm)-1
+    fdist = zeros(nsteps, 2, Ncap(sm))
+    #adist = zeros(meas_stp-2*Ncap(sm), 2, Ncap(sm))
+    # for i in scan+1:meas_stp-scan-2
+    for i in scan+1:nsteps+2*Ncap(sm)-scan-2
+        fdist[i-scan, 1, :] = S2N(sps[i-scan:i,:], Ncap(sm), true)
+        fdist[i-scan, 2, :] = S2N(sps[i:i+scan,:], Ncap(sm), false)
+    #    adist[i-scan, 1, :] = reverse(mean(sps[i-scan:i,:], dims = 2)/2 .+ 0.5)
+    #    adist[i-scan, 2, :] = mean(sps[i:i+scan,:], dims = 2)/2 .+ 0.5
+    end
+    return fdist
+end
 
 function network_traj!(s::IsingModel, nsteps :: Int; parallel :: Bool)::Matrix{Float64}
     if s.R == 0 && s.Q == 1 
@@ -372,6 +397,24 @@ end
 function stats!(s::IsingModel, nsteps::Int; parallel::Bool) :: Vector{Float64}
     traj = network_traj!(s, nsteps, parallel=parallel)
     return [mean(traj, dims=1)[:]..., std(traj, dims=1)...]
+end
+
+function entropy!(sm::IsingModel, meas_stp::Int, parallel :: Bool = true)
+    #get trajectory
+    fdist = fdist_traj!(sm, meas_stp, parallel=parallel)
+    # calculate entropy
+    S = zeros(meas_stp-2*Ncap(sm)-2, 2)
+    for i in 1:meas_stp-2*Ncap(sm)-2
+        Nf = fdist[i, 1, :]
+        Nb = fdist[i+2, 2, :] 
+
+        hf = [sm.β*(local_current(sm.J,τ,N2a(Nf,sm.Q),sm.C,sm.I)-sm.θ) for τ in 1:sm.Q]
+        hb = [sm.β*(local_current(sm.J,τ,N2a(Nb,sm.Q),sm.C,sm.I)-sm.θ) for τ in 1:sm.Q]
+
+        S[i,1] = Nf[1:Q]'*(-hf.*tanh.(hf).+log.(2 .*cosh.(hf)))
+        S[i,2] = Nb[1:Q]'*(-hb.*tanh.(hf).+log.(2 .*cosh.(hb)))
+    end
+    return S
 end
 
 # Useful Graphs
