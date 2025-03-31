@@ -141,6 +141,28 @@ end
     step!(mf)
     @test mf.x ≈ [0.5*(1+tanh(1)),0,0,0,0.5*(1-tanh(1))]
 end
+@testset "Refractive Entropy" begin
+    J = 1
+    θ = 0
+    β = 6
+    I = 0
+    R = 4
+    dm = RefractiveIMF(spike_ic_mf(R, 0), J, θ, β, I)
+
+    # fdist tests
+    meas_stp = 100
+    fdist = refractive_fdist_traj!(dm, meas_stp)
+    @test size(fdist) == (meas_stp, 2, R+1)
+    @test all(sum(fdist, dims=3) .≈ 1)
+    @test all(fdist[:,1,1] .== fdist[:,1,1])
+
+    # S tests
+    S = refractive_entropy!(dm, meas_stp)
+    @test size(S) == (meas_stp, 2)
+    @test all(S.>= 0)
+    @test all(S.<= 1)
+end
+
 
 # IntegratorIMF
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -208,6 +230,9 @@ end
     # do another step
 
     # TODO: β = 1, θ = 1
+
+end
+@testset "Integrator Entropy" begin
 
 end
 

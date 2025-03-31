@@ -88,20 +88,37 @@ function RefractiveIMF(x0::Vector, J::Real, θ::Real, β::Real, I::Real) :: Disc
         _refractive_ising_map, x0, x0, p, ft, nft, pc)
 end
 
-function refractive_ising_entropy!(s::DiscreteMap, meas_stp::Int)
-    tf = trajectory!(s, meas_stp, ft=false)[:,1]
-    S = zeros(meas_stp-2*(R+1),2)
-    for i in R+2:meas_stp-R-1
-        Nf = reverse(tf[i-R-1:i-1])
-        Nb = tf[i+1:i+R+1]
-        Nf[R+1] = 1 - sum(Nf[1:R])
-        Nb[R+1] = 1 - sum(Nb[1:R])
+function refractive_fdist_traj!(s::DiscreteMap, meas_stp::Int)
+
+    traj_size = meas_stp + 2*s.p[:R]
+    tf = trajectory!(s, traj_size, ft=false)[:,1]
+
+    R, scan = s.p[:R], s.p[:R]
+    fdist = zeros(Float64, (meas_stp, 2, R+1))
+    for i in R+1:traj_size-scan
+        fdist[i-scan,1,:] = reverse(tf[i-scan:i])
+        fdist[i-scan,2,:] = tf[i:i+scan]
+        fdist[i-scan,1,R+1] = 1 - sum(fdist[i-scan,1,1:R])
+        fdist[i-scan,2,R+1] = 1 - sum(fdist[i-scan,2,1:R])
+    end
+    return fdist
+end
+
+function refractive_entropy!(s::DiscreteMap, meas_stp::Int)
+    fdist = refractive_fdist_traj!(s, meas_stp+2)
+    S = zeros(meas_stp,2)
+    for i in 1:meas_stp
+        # p(n) / p(\hat{n})
+        Nf = fdist[i,1,:]
+        Nb = fdist[i+2,2,:]
+        # local fields 
         hf = s.p[:β]*(s.p[:J]*Nf[1] - s.p[:θ])
         hb = s.p[:β]*(s.p[:J]*Nb[1] - s.p[:θ])
-        S[i-(R+1),1] = Nf[R+1]*(-hf*tanh(hf) + log(2*cosh(hf)))
-        S[i-(R+1),2] = Nb[R+1]*(-hb*tanh(hf) + log(2*cosh(hb)))
+        # entropy
+        S[i,1] = Nf[R+1]*(-hf*tanh(hf) + log(2*cosh(hf)))
+        S[i,2] = Nb[R+1]*(-hb*tanh(hb) + log(2*cosh(hb)))
     end
-    return [mean(S[:,1]), mean(S[:,2]), mean(S[:,2]-S[:,1])]
+    return S
 end
 
 # Integrator Ising model
@@ -276,9 +293,24 @@ function combined_fxp(J::Real, θ::Real, β::Real, I::Real,
     ]
 end
 
+function combined_map_currents(x,p)
+    return [(p[:C][1:τ]'*(p[:J]*x[1:τ] .+ p[:I])) for τ in 1:p[:Q]]
+end
+
+function combined_map_phase(x, p)
+    if p[:θ] > 0
+        phases = clamp.(combined_map_currents(x, p), 0, p[:θ])/p[:θ].*(2*pi)
+        return [zeros(p[:R])..., phases..., phases[p[:Q]]]
+    elseif p[:θ] < 0
+        phases = clamp.(combined_map_currents(x, p), p[:θ], 0)/p[:θ].*(2*pi)
+        return [zeros(p[:R])..., phases..., phases[p[:Q]]]
+    else
+        return zeros(p[:R]+p[:Q]+1)
+    end
+end
+
 function combined_map(x, p)
-    activ = [tanh(p[:β]*(p[:C][1:τ]'*(p[:J]*x[1:τ] .+ p[:I])  
-        - p[:θ]))/2 for τ in 1:p[:Q]]
+    activ = tanh.(p[:β].*(combined_map_currents(x, p).-p[:θ]))/2
     R, Q = p[:R], p[:Q]
     return [
         x[R+1:R+Q]'*(0.5.+activ)+x[R+Q+1]'*(0.5.+activ[Q])  # a0
@@ -297,15 +329,18 @@ function CombinedIMF(x0::Vector, J::Real, θ::Real, β::Real,
     p = Dict(:J => J, :θ => θ, :β => β, :I => I,
         :R=> R, :Q => Q, :C => C, )
     # create featurizer
+    # TODO: optimize featurizer calculations
     ft = (x, p, pc) -> [
             x[1],               # firing neurons
             sum(x[2:p[:R]]),    # refractory neurons
             sum(x[p[:R]+1:end]),# ready to fire neurons
             norm(x - pc[:fxp]), # distance to fixed point
-            abs(x'*pc[:ang]),   # kuramoto coherence
-            angle(x'*pc[:ang])  # kuramoto phase
+            # kuramoto coherence
+            abs(x'*exp.(im.*combined_map_phase(x, p))),  
+            # kuramoto phase 
+            angle(x'*exp.(im.*combined_map_phase(x, p)))
             ]
-    nft = 4
+    nft = 6
     # precompute stuff
     pc = Dict(
         :fxp => zeros(R+Q+1),#combined_fxp(J, θ, β, I, R, C))
