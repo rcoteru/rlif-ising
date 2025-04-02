@@ -18,9 +18,9 @@ begin
     N = 900
     J = 0.2
     θ = 1
-    β = 10
+    β = 8
     I = 0.1
-    R = 3
+    R = 10
     Q = 50
     α = 0.1
     n = random_ic_sm(N, Q)
@@ -63,6 +63,8 @@ begin
         ylims!(ax, 0, 1)
 
         ax = Axis(fig[2, 2], title=L"p_t(n)", xlabel=L"n")
+        lines!(ax, 0:Ncap(sm)-1, dm.pc[:fxp], color = :gray,
+            linestyle = :dash, label = "theoretical")
         lines!(ax, 0:Ncap(sm)-1, mf_dist, color = :red)
         lines!(ax, 0:Ncap(sm)-1, sm_dist, color = :blue)
         xlims!(ax, 0,Ncap(sm)-1)
@@ -78,8 +80,8 @@ begin
         ax = Axis(fig[2:3, 3], title=L"K_t", xlabel=L"t")
         
         θr = range(0, 2*pi, length=100)
-        lines!(ax, real(exp.(im.*θr)), imag(exp.(im.*θr)), color = :black, linewidth = 0.5,
-            linestyle = :dash)
+        lines!(ax, real(exp.(im.*θr)), imag(exp.(im.*θr)), 
+            color = :black, linewidth = 0.5, linestyle = :dash)
         scatter!(ax, sm_swkur, color = :black, alpha = 0.1, markersize = 6)
         scatter!(ax, mf_kur, color = :red,  markersize = 10)
         scatter!(ax, sm_kur, color = :blue, markersize = 10)
@@ -89,7 +91,7 @@ begin
 
         ax = Axis(fig[2:3, 4], aspect=1, height=300, title=L"n_i")
         hidedecorations!(ax)
-        hm = heatmap!(ax, img, colorrange = (0, 20),
+        hm = heatmap!(ax, img, colorrange = (0, 30),
             colormap = :RdBu)
         cm = Colorbar(fig[2:3, 5], hm)
 

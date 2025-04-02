@@ -247,18 +247,20 @@ end
 # end
 
 function combined_fxp_currents(x::Real, 
-    J::Real, θ::Real, β::Real, I::Real, C::Vector
+    J::Real, θ::Real, β::Real, I::Real, R::Int, C::Vector
     ) :: Vector{Float64}
     Q = length(C)
     currs = zeros(Q)
     # some of these are simpler than the integrator currents
     # currs[1] = β*(C[1]*(J*x+I)-θ)
-    currs[1:R+1] = [β*(C[1:r]*(J*x+I)-θ) for r in 1:R+1]
-    for τmax in R+2:Q
-        net_sum = sum([C[i]*(prod(0.5.-0.5.*tanh.(currs[1:i-1]))*x) 
-            for i in 1:τmax])
-        ext_sum = I*sum([C[i] for i in 1:τmax])
-        currs[τmax] = β*(J*net_sum+ext_sum-θ)
+    currs[1:min(R+1,Q)] = [β*(sum(C[1:τmax])*(J*x+I)-θ) for τmax in 1:min(R+1,Q)]
+    if Q > R+1
+        for τmax in R+2:Q
+            net_sum = sum([C[i]*(prod(0.5.-0.5.*tanh.(currs[1:i-1]))*x) 
+                for i in 1:τmax])
+            ext_sum = I*sum([C[i] for i in 1:τmax])
+            currs[τmax] = β*(J*net_sum+ext_sum-θ)
+        end
     end
     return currs
 end
@@ -267,9 +269,9 @@ function combined_fxp_transcendental(x::Real,
         J::Real, θ::Real, β::Real, I::Real, 
         R::Int, C::Vector) :: Real
     Q = length(C)
-    currs = combined_fxp_currents(x, J, θ, β, I, C)
+    currs = combined_fxp_currents(x, J, θ, β, I, R, C)
     ps = 0.5 .- 0.5*tanh.(currs)
-    return (x + x*sum([prod(ps[1:τ-1]) for τ in 2:Q]) 
+    return (x*(R+1) + x*sum([prod(ps[1:τ-1]) for τ in 2:Q]) 
         +  x*prod(ps[1:Q])*exp(-2*currs[Q]) - 1)
 end
 
@@ -279,10 +281,10 @@ function combined_fxp(J::Real, θ::Real, β::Real, I::Real,
     Q = length(C)
     _transcendent(x) = combined_fxp_transcendental(x, J, θ, β, I, R, C)
     sol = find_zero(_transcendent, (0, 1/(R+1)), Brent(), maxevals=200)
-    currs = combined_fxp_currents(sol, J, θ, β, I, C)
+    currs = combined_fxp_currents(sol, J, θ, β, I, R, C)
     ps = 0.5 .- 0.5*tanh.(currs)
     return [# check this
-        fill(sol, R+1),
+        fill(sol, R+1)...,
         [sol*prod(ps[1:τ]) for τ in 1:Q-1]...,
         sol*prod(ps[1:Q])*exp(-2*currs[Q])
     ]
@@ -322,7 +324,7 @@ function CombinedIMF(x0::Vector, J::Real, θ::Real, β::Real,
     Q = length(C)
     # create parameter
     p = Dict(:J => J, :θ => θ, :β => β, :I => I,
-        :R=> R, :Q => Q, :C => C, )
+        :R=> R, :Q => Q, :C => C)
     # create featurizer
     # TODO: optimize featurizer calculations
     ft = (x, p, pc) -> [
@@ -337,10 +339,7 @@ function CombinedIMF(x0::Vector, J::Real, θ::Real, β::Real,
             ]
     nft = 6
     # precompute stuff
-    pc = Dict(
-        :fxp => zeros(R+Q+1),#combined_fxp(J, θ, β, I, R, C))
-        :ang => exp.(im.*range(0, stop=2*pi, length=Q+R+1))
-    )
+    pc = Dict(:fxp => combined_fxp(J, θ, β, I, R, C))
     return DiscreteMap{R+Q+1}("Combined IMF Model",
         combined_map, x0, x0, p, ft, nft, pc)
 end

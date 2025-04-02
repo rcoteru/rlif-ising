@@ -67,10 +67,9 @@ end
 
 # THEO: Firing probability and transcendental
 begin
-    J = 0.3
+    J = 0.1
     θ = 1
-    β = 40
-
+    β = 10
     Q = 50
     I = 0.1
     C = exponential_weights(Q, 0.1)
@@ -94,19 +93,19 @@ begin
     lines!(ax, x, y,color = :black, linewidth = 2, linestyle = :solid)
     hlines!(ax, [0], color = :black, linewidth = 1, linestyle = :dash)
     
-    ax = Axis(f[3,1:3])
-    currs = stack([integrator_fxp_currents(i, J, θ, β, I, C)[Q] for i in x])
-    y = [exp(-2*currs[i]) for i in 1:length(x)]
-    lines!(ax, x, y,color = :blue, linewidth = 2, linestyle = :solid)
-    y = [probs[Q,i] for i in 1:length(x)]
-    lines!(ax, x, y,color = :black, linewidth = 2, linestyle = :solid)
-    y = [x[i]*prod(1 .-probs[1:Q,i]) for i in 1:length(x)]
-    lines!(ax, x, y,color = :red, linewidth = 2, linestyle = :dash)
-    ylims!(ax, 0, 1)
+    # ax = Axis(f[3,1:3])
+    # currs = stack([integrator_fxp_currents(i, J, θ, β, I, C)[Q] for i in x])
+    # y = [exp(-2*currs[i]) for i in 1:length(x)]
+    # lines!(ax, x, y,color = :blue, linewidth = 2, linestyle = :solid)
+    # y = [probs[Q,i] for i in 1:length(x)]
+    # lines!(ax, x, y,color = :black, linewidth = 2, linestyle = :solid)
+    # y = [x[i]*prod(1 .-probs[1:Q,i]) for i in 1:length(x)]
+    # lines!(ax, x, y,color = :red, linewidth = 2, linestyle = :dash)
+    # ylims!(ax, 0, 1)
 
     # print max and min
-    Label(f[4,3], "Max: $(maximum(y))", fontsize = 12)
-    Label(f[4,1], "Min: $(minimum(y))", fontsize = 12)
+    Label(f[3,3], "Max: $(maximum(y))", fontsize = 12)
+    Label(f[3,1], "Min: $(minimum(y))", fontsize = 12)
 
     display(f)
 
@@ -168,6 +167,49 @@ end
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # Combined model
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+# THEO: Firing probability and transcendental
+begin
+    J = 0.1
+    θ = 1
+    β = 10
+    I = 0.1
+    R = 3
+    Q = 50
+    α = 0.1
+    C = exponential_weights(Q, α)
+
+    f = Figure()
+
+    x = range(0, 1, length=200)
+
+    ax = Axis(f[1,1:2])
+    probs = stack([combined_fxp_currents(i,J,θ,β,I,R,C) for i in x])
+    probs = 0.5.*(1 .+tanh.(probs))
+    hm = heatmap!(ax, x, 1:Q, probs',colorrange=(0,1))
+    Colorbar(f[1,3], hm, label = "Probability")
+    
+    ax = Axis(f[2,1:3])
+    y = [combined_fxp_transcendental(i, J, θ, β, I, R, C) for i in x]
+    lines!(ax, x, y,color = :black, linewidth = 2, linestyle = :solid)
+    hlines!(ax, [0], color = :black, linewidth = 1, linestyle = :dash)
+    
+    # ax = Axis(f[3,1:3])
+    # currs = stack([integrator_fxp_currents(i, J, θ, β, I, C)[Q] for i in x])
+    # y = [exp(-2*currs[i]) for i in 1:length(x)]
+    # lines!(ax, x, y,color = :blue, linewidth = 2, linestyle = :solid)
+    # y = [probs[Q,i] for i in 1:length(x)]
+    # lines!(ax, x, y,color = :black, linewidth = 2, linestyle = :solid)
+    # y = [x[i]*prod(1 .-probs[1:Q,i]) for i in 1:length(x)]
+    # lines!(ax, x, y,color = :red, linewidth = 2, linestyle = :dash)
+    # ylims!(ax, 0, 1)
+
+    # # print max and min
+    # Label(f[4,3], "Max: $(maximum(y))", fontsize = 12)
+    # Label(f[4,1], "Min: $(minimum(y))", fontsize = 12)
+
+    display(f)
+end
 
 begin
 
