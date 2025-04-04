@@ -113,11 +113,28 @@ function refractive_entropy!(s::DiscreteMap, meas_stp::Int)
         hf = s.p[:β]*(s.p[:J]*Nf[1] - s.p[:θ])
         hb = s.p[:β]*(s.p[:J]*Nb[1] - s.p[:θ])
         # entropy
-        S[i,1] = Nf[R+1]*(-hf*tanh(hf) + log(2*cosh(hf)))
-        S[i,2] = Nb[R+1]*(-hb*tanh(hb) + log(2*cosh(hb)))
+        S[i,1] = (-hf*tanh(hf) + log(2*cosh(hf)))
+        S[i,2] = (-hb*tanh(hf) + log(2*cosh(hb)))
     end
     return S
 end
+
+# function refractive_entropy!(s::DiscreteMap, meas_stp::Int)
+#     fdist = refractive_fdist_traj!(s, meas_stp+2)
+#     S, R = zeros(meas_stp,2), s.p[:R]
+#     for i in 1:meas_stp
+#         # p(n) / p(\hat{n})
+#         Nf = fdist[i,1,:]
+#         Nb = fdist[i+2,2,:]
+#         # local fields 
+#         hf = s.p[:β]*(s.p[:J]*Nf[1] - s.p[:θ])
+#         hb = s.p[:β]*(s.p[:J]*Nb[1] - s.p[:θ])
+#         # entropy
+#         S[i,1] = Nf[R+1]*(-hf*tanh(hf) + log(2*cosh(hf)))
+#         S[i,2] = Nb[R+1]*(-hb*tanh(hb) + log(2*cosh(hb)))
+#     end
+#     return S
+# end
 
 # Integrator Ising model
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -175,9 +192,26 @@ function integrator_fxp(J, θ, β, I, C) :: Vector{Float64}
     return fxp
 end
 
+function integrator_map_currents(x, p)
+    return [p[:C][1:τ]'*(p[:J]*x[1:τ] .+ p[:I]) for τ in 1:p[:Q]]
+end
+
+function combined_map_phase(x, p)
+    if p[:θ] > 0
+        phases = clamp.(combined_map_currents(x, p), 0, p[:θ])/p[:θ].*(2*pi)
+        return [phases..., phases[p[:Q]]]
+    elseif p[:θ] < 0
+        phases = clamp.(combined_map_currents(x, p), p[:θ], 0)/p[:θ].*(2*pi)
+        return [phases..., phases[p[:Q]]]
+    else
+        return zeros(p[:Q]+1)
+    end
+end
+
 function integrator_map(x, p)
-    activ = [tanh(p[:β]*(p[:C][1:τ]'*(p[:J]*x[1:τ] .+ p[:I])  
-        - p[:θ]))/2 for τ in 1:p[:Q]]
+    # activ = [tanh(p[:β]*(p[:C][1:τ]'*(p[:J]*x[1:τ] .+ p[:I])  
+    #      - p[:θ]))/2 for τ in 1:p[:Q]]
+    activ = tanh.(p[:β]*(integrator_map_currents(x, p).-p[:θ]))./2
     return [
         x[1:p[:Q]]'*(0.5.+activ) + x[p[:Q]+1]'*(0.5.+activ[p[:Q]]),
         x[1:p[:Q]-1].*(0.5.-activ[1:p[:Q]-1])...,
@@ -210,41 +244,50 @@ function IntegratorIMF(x0::Vector, J::Real, θ::Real, β::Real,
         integrator_map, x0, x0, p, ft, nft, pc)
 end
 
+
+function integrator_fdist_traj!(s::DiscreteMap, meas_stp::Int)
+    traj_size = meas_stp + 2*s.p[:Q]
+    tf = trajectory!(s, traj_size, ft=false)
+    Q, scan = s.p[:Q], s.p[:Q]
+    fdist = zeros(Float64, (meas_stp, 2, Q+1))
+    for i in Q+1:traj_size-scan
+        fdist[i-scan,1,:] = tf[i,:]
+        #TODO this is not correct, find a way to do this from the trajectory
+        # although most of the time it should be correct enough
+        for τ in 1:Q+1
+            fdist[i-scan,2,τ] = min(tf[i+τ-1,1], 
+                (1-sum(fdist[i-scan,2,:])))
+        end
+    end
+    return fdist
+end
+
+function integrator_entropy!(s::DiscreteMap, meas_stp::Int)
+    fdist = integrator_fdist_traj!(s, meas_stp+2)
+    S, Q = zeros(meas_stp,2), s.p[:Q]
+    for i in 1:meas_stp
+        # p(n) / p(\hat{n})
+        Nf = fdist[i,1,:]
+        Nb = fdist[i+2,2,:]
+        # local fields 
+        hf = s.p[:β].*(integrator_map_currents(Nf, s.p).-s.p[:θ])
+        hb = s.p[:β].*(integrator_map_currents(Nb, s.p).-s.p[:θ])
+        hf = [hf[1:Q]..., hf[Q]]
+        hb = [hb[1:Q]..., hb[Q]]
+
+        S[i,1] = Nf'*(-hf.*tanh.(hf) + log.(2*cosh.(hf)))
+
+        hf2 = hf*ones(1,Q+1)
+        hb2 = ones(Q+1,1)*hb'
+        Sr2 = (-hb2.*tanh.(hf2) + log.(2*cosh.(hb2)))
+
+        S[i,2] = Nf'*Sr2*Nb
+    end
+    return S
+end
+
 # Combined Ising model
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-
-# """
-# complete_ising_fxp(J, θ, β, R, Q, C)
-
-# Returns the analystical fixed point of the complete Ising model.
-
-# # Arguments
-# - `J::Real`: synaptic coupling
-# - `θ::Real`: external field
-# - `β::Real`: inverse temperature
-# - `R::Int`: refractory period
-# - `Q::Int`: memory of the system
-# - `C::Vector`: memory weights
-
-# # Returns
-# - `Vector{Float64}`: fixed point of the complete Ising model
-# """
-# function complete_ising_fxp(J, θ, β, R, Q, C) :: Vector{Float64}
-#     _probs(x) = 0.5 .+ tanh.(β.*(J.*x.*cumsum(C).+θ))./2
-#     function _transcendent(x)
-#         pp = _probs(x)
-#         pn = 1 .- pp
-#         return 1/x - (R+1) - sum([prod(pn[1:τ-1]) for τ in 2:Q-1]) - 1/pp[end]*prod(pn[1:end-1])
-#     end
-#     sol = find_zero(_transcendent, (0, 1/(R+1)), Brent(), maxevals=200)
-#     pp = _probs(sol)
-#     pn = 1 .- pp
-#     return [
-#         fill(sol, R+1)
-#         [sol*prod(pn[1:τ]) for τ in 1:Q-2]
-#         sol*prod(pn[1:Q-1])/pp[end]
-#         ]
-# end
 
 function combined_fxp_currents(x::Real, 
     J::Real, θ::Real, β::Real, I::Real, R::Int, C::Vector

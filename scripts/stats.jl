@@ -21,7 +21,7 @@ begin
     R = 3
     θ = 0
     I = 0
-    βs = range(0, 50, 101)
+    βs = range(0, 10, 101)
     ic = spike_ic_mf(R, 0)
 
     nequi, nmeas = 20000, 1000
@@ -172,20 +172,22 @@ end
 
 # MF: entropy along β
 begin
-    J = -1
+    J = 1
     R = 3
     θ = 0
-    βs = range(0, 20, 101)
-    ic = spike_ic_mf(R, 0)
+    βs = range(0, 10, 101)
+    I = 0
+    ic = random_ic_mf(R, 0)
 
-    nequi, nmeas = 20000, 1000
+    nequi, nmeas = 2000, 3000
     
     # run the simulations
-    ent = zeros(length(βs), 3)
+    ent = zeros(length(βs), 2)
     Threads.@threads for (i,) in ProgressBar(idx_combinations([βs]))    
-        dm = RefractiveIMF(ic, J, θ, βs[i])
+        dm = RefractiveIMF(ic, J, θ, βs[i], I)
         forward!(dm, nequi)
-        ent[i,:] = refractive_ising_entropy!(dm, nmeas)
+        S = refractive_entropy!(dm, nmeas)
+        ent[i,:] = mean(S, dims = 1) 
     end
 
     # plot
@@ -203,7 +205,7 @@ begin
 
     # total entropy
     ax = Axis(f[1,3], xlabel=L"β")
-    lines!(ax, βs, ent[:,3], color = :black)
+    lines!(ax, βs, ent[:,2]-ent[:,1], color = :black)
     ax.title = L"Total entropy$$"
 
     save(plotsdir("refractive-mf-entropy-beta.pdf"), f)
@@ -212,20 +214,22 @@ end
 
 # MF: entropy along θ
 begin
-    J = -1
+    J = 11
     R = 3
     β = 10
     θs = range(-2, 2, 101)
+    I = 0
     ic = spike_ic_mf(R, 0)
 
-    nequi, nmeas = 20000, 1000
+    nequi, nmeas = 20000, 5000
     
     # run the simulations
-    ent = zeros(length(θs), 3)
+    ent = zeros(length(θs), 2)
     Threads.@threads for (i,) in ProgressBar(idx_combinations([θs]))    
-        dm = RefractiveIMF(ic, J, θs[i], β)
+        dm = RefractiveIMF(ic, J, θs[i], β, I)
         forward!(dm, nequi)
-        ent[i,:] = refractive_ising_entropy!(dm, nmeas)
+        S = refractive_entropy!(dm, nmeas)
+        ent[i,:] = mean(S, dims = 1)
     end
 
     # plot
@@ -243,7 +247,7 @@ begin
 
     # total entropy
     ax = Axis(f[1,3], xlabel=L"θ")
-    lines!(ax, θs, ent[:,3], color = :black)
+    lines!(ax, θs, ent[:,2]-ent[:,1], color = :black)
     ax.title = L"Total entropy $$"
 
     save(plotsdir("refractive-mf-entropy-theta.pdf"), f)
@@ -253,19 +257,21 @@ end
 # MF: entropy in β-θ plane
 begin
     J = 1
-    R = 3
-    βs = range(0, 10, 51)
-    θs = range(-2, 2, 51)
+    R = 5
+    βs = range(0, 6, 51)
+    θs = range(-1, 2, 51)
+    I = 0
     ic = spike_ic_mf(R, 0)
 
     nequi, nmeas = 20000, 1000
     
     # run the simulations
-    ent = zeros(length(θs), length(βs), 3)
+    ent = zeros(length(θs), length(βs),2)
     Threads.@threads for (i,j) in ProgressBar(idx_combinations([θs, βs]))    
-        dm = RefractiveIMF(ic, J, θs[i], βs[j])
+        dm = RefractiveIMF(ic, J, θs[i], βs[j], I)
         forward!(dm, nequi)
-        ent[i,j,:] = refractive_ising_entropy!(dm, nmeas)
+        S = refractive_entropy!(dm, nmeas)
+        ent[i,j,:] = mean(S, dims = 1)
     end
 end
 begin
@@ -284,7 +290,8 @@ begin
 
     # total entropy
     ax = Axis(f[3,1], ylabel=L"\theta")
-    hm = heatmap!(ax, βs, θs, ent[:,:,3]', colormap = :viridis)
+    hm = heatmap!(ax, βs, θs, ent[:,:,2]'-ent[:,:,1]', 
+        colormap = :viridis)
     Colorbar(f[3,2], hm, label = "Total Entropy")
 
     save(plotsdir("refractive-mf-entropy-plane.pdf"), f)
@@ -764,4 +771,119 @@ begin  # plot
 
     save(plotsdir("integrator-mf-stats-plane-mean.pdf"), f)
     display(f) 
+end
+
+# MF: fdist
+begin
+    J = 0.2
+    θ = 1
+    β = 30
+    I = 0.1
+    α = 0.1
+    Q = 50
+    ic = random_ic_mf(0, Q)
+    C = exponential_weights(Q, α)
+
+    nequi, nmeas = 2000, 3000
+    dm = IntegratorIMF(ic, J, θ, β, I, C)
+    forward!(dm, nequi)
+    fdist = integrator_fdist_traj!(dm, nmeas)
+
+    idx = 50
+    f = Figure(size = (800, 400))
+    ax = Axis(f[1,1], xlabel=L"n", ylabel=L"p")
+    lines!(ax, 1:Q+1, fdist[idx,1,:], color = :blue, 
+        label=L"p(n)")
+    lines!(ax, 1:Q+1, fdist[idx,2,:], color = :red,
+        label=L"p(\hat{n})")
+    axislegend(ax, position = :lt)
+    display(f)
+
+end
+
+
+# MF: entropy along β
+begin
+    J = 0.1
+    θ = 1
+    βs = range(0, 30, 31)
+    I = 0.1
+    α = 0.1
+    Q = 50
+    ic = spike_ic_mf(0, Q)
+    C = exponential_weights(Q, α)
+
+    nequi, nmeas = 10000, 4000
+    
+    # run the simulations
+    ent = zeros(length(βs), 2)
+    Threads.@threads for (i,) in ProgressBar(idx_combinations([βs]))    
+        dm = IntegratorIMF(ic, J, θ, βs[i], I, C)
+        forward!(dm, nequi)
+        S = integrator_entropy!(dm, nmeas)
+        ent[i,:] = mean(S, dims = 1) 
+    end
+end
+begin
+    # plot
+    f = Figure(size = (800, 400))
+
+    # forwards entropy
+    ax = Axis(f[1,1], xlabel=L"β", ylabel=L"S")
+    lines!(ax, βs, ent[:,1], color = :black)
+    ax.title = L"Forwards entropy$$"
+
+    # backwards entropy
+    ax = Axis(f[1,2], xlabel=L"β")
+    lines!(ax, βs, ent[:,2], color = :black)
+    ax.title = L"Backwards entropy, $\theta = %$θ$"
+    # total entropy
+    ax = Axis(f[1,3], xlabel=L"β")
+    lines!(ax, βs, ent[:,2]-ent[:,1], color = :black)
+    ax.title = L"Total entropy$$"
+    save(plotsdir("integrator-mf-entropy-beta.pdf"), f)
+    display(f)
+end
+
+# MF: entropy along θ
+begin
+    J = 0.1
+    β = 20
+    θs = range(0, 1.5, 51)
+    I = 0.1
+    α = 0.1
+    Q = 50
+    ic = spike_ic_mf(0, Q)
+    C = exponential_weights(Q, α)
+
+    nequi, nmeas = 10000, 2000
+    
+    # run the simulations
+    ent = zeros(length(θs), 2)
+    Threads.@threads for (i,) in ProgressBar(idx_combinations([θs]))    
+        dm = IntegratorIMF(ic, J, θs[i], β, I, C)
+        forward!(dm, nequi)
+        S = integrator_entropy!(dm, nmeas)
+        ent[i,:] = mean(S, dims = 1)
+    end
+
+    # plot
+    f = Figure(size = (800, 400))
+    
+    # forwards entropy
+    ax = Axis(f[1,1], xlabel=L"θ", ylabel=L"S")
+    lines!(ax, θs, ent[:,1], color = :black)
+    ax.title = L"Forwards entropy$$"
+
+    # backwards entropy
+    ax = Axis(f[1,2], xlabel=L"θ")
+    lines!(ax, θs, ent[:,2], color = :black)
+    ax.title = L"Backwards entropy, $\beta = %$β$"
+
+    # total entropy
+    ax = Axis(f[1,3], xlabel=L"θ")
+    lines!(ax, θs, ent[:,2]-ent[:,1], color = :black)
+    ax.title = L"Total entropy $$"
+    save(plotsdir("integrator-mf-entropy-theta.pdf"), f)
+    display(f)
 end

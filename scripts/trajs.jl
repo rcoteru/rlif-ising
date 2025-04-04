@@ -665,7 +665,7 @@ begin
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"t", ylabel=L"n")
     labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
-    for i in [5,6]
+    for i in [1]
         lines!(ax, t0:tf, traj[t0:tf,i], label=labels[i])
     end
     axislegend(ax, position = :lt)
