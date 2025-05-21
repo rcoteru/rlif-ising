@@ -236,6 +236,26 @@ end
 
 end
 
+# J = 0.1
+# θ = 1
+# β = 5
+# I = 0
+# Q = 50
+# α = 0.1
+# C = exponential_weights(Q, α)
+# dm = IntegratorIMF(spike_ic_mf(0, Q), J, θ, β, I, C)
+
+# forward!(dm,1000)
+
+# # fdist tests
+# meas_stp = 100
+# fdist = integrator_fdist_traj!(dm, meas_stp)
+# @test size(fdist) == (meas_stp, 2, Q+1)
+# @test all(sum(fdist, dims=3) .≈ 1)
+# @test all(fdist[:,1,1] .== fdist[:,1,1])
+
+
+
 # CombinedIMF
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
