@@ -118,7 +118,7 @@ begin
     N = 2000
     J = 0.1
     θ = 1
-    β = 200
+    β = 0.1
     Q = 50
     I = 0.1
     α = 0.1
@@ -217,7 +217,7 @@ begin
     N = 2000
     J = 0.3
     θ = 1
-    β = 10
+    β = 0.1
     Q = 50
     I = 0.1
     α = 0.1
@@ -225,8 +225,7 @@ begin
     R = 3
 
     # theoretical fixed points
-    #xt = combined_fxp(J, θ, β, I, R, C)
-    xt = zeros(R+Q+1)
+    xt = combined_fxp(J, θ, β, I, R, C)
 
     # mean field simulation
     ic = random_ic_mf(R, Q)
@@ -240,7 +239,7 @@ begin
     sm = CombinedSM(J, θ, β, I, n, R, C)
     forward!(sm, 5000, parallel = true)
     xs = zeros(R+Q+1)
-    samps = 1
+    samps = 20
     for i in 1:samps
         forward!(sm, 1, parallel = true)
         xs += n2N(sm)

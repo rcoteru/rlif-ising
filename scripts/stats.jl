@@ -17,7 +17,7 @@ end
 
 # MF: mean, std along β
 begin
-    J = -1
+    J = 1
     R = 3
     θ = 0
     I = 0
@@ -40,12 +40,11 @@ begin
     ax = Axis(f[1,1], xlabel=L"β", ylabel=L"n")
     colors = [:black, :red, :blue, :green, :orange, :purple]
     labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
-    # for i in [1, 4, 5,6]
-    #     lines!(ax, βs, meas[:,i], color = colors[i], label = labels[i])
-    #     lines!(ax, βs, meas[:,i]+meas[:,i+6], color = colors[i], linestyle = :dash)
-    #     lines!(ax, βs, meas[:,i]-meas[:,i+6], color = colors[i], linestyle = :dash)
-    # end
-    lines!(ax, βs, meas[:,12], color = colors[6], label = labels[6])
+    for i in [1,4]
+        lines!(ax, βs, meas[:,i], color = colors[i], label = labels[i])
+        lines!(ax, βs, meas[:,i]+meas[:,i+6], color = colors[i], linestyle = :dash)
+        lines!(ax, βs, meas[:,i]-meas[:,i+6], color = colors[i], linestyle = :dash)
+    end
     # set title with θ dynamically
     ax.title = L"Refractive model, $\theta = %$θ$"
     axislegend(ax, position = :lt)
@@ -77,7 +76,7 @@ begin
     ax = Axis(f[1,1], xlabel=L"θ", ylabel=L"n")
     colors = [:black, :red, :blue, :green, :orange, :purple]
     labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
-    for i in [1,4,5,6]
+    for i in [1,4]
         lines!(ax, θs, meas[:,i], color = colors[i], label = labels[i])
         lines!(ax, θs, meas[:,i]+meas[:,i+6], color = colors[i], linestyle = :dash)
         lines!(ax, θs, meas[:,i]-meas[:,i+6], color = colors[i], linestyle = :dash)
@@ -214,7 +213,7 @@ end
 
 # MF: entropy along θ
 begin
-    J = 11
+    J = 1
     R = 3
     β = 10
     θs = range(-2, 2, 101)
@@ -302,22 +301,23 @@ end
 
 # SM: mean, std along β
 begin
-    N = 2000
+    N = 200
     J = 1
     R = 3
     θ = 0
+    I = 0
     βs = range(0, 10, 101)
     
     ic = spike_ic_sm(N)
 
-    nequi, nmeas = 1000, 10000
+    nequi, nmeas = 100, 1000
     parallel = true
     
     # run the simulations
-    meas = zeros(length(βs), 8)
+    meas = zeros(length(βs), 10)
     #Threads.@threads 
     for (i,) in ProgressBar(idx_combinations([βs]))    
-        sm = RefractiveSM(J, θ, βs[i], ic, R)
+        sm = RefractiveSM(J, θ, βs[i], I, ic, R)
         forward!(sm, nequi, parallel=parallel)
         meas[i,:] = stats!(sm, nmeas, parallel=parallel)
     end
@@ -329,13 +329,13 @@ begin
     labels = ["Firing", "Refractive", "Ready", "Fxp distance"]
     for i in [1,4]
         lines!(ax, βs, meas[:,i], color = colors[i], label = labels[i])
-        lines!(ax, βs, meas[:,i]+meas[:,i+4], color = colors[i], linestyle = :dash)
-        lines!(ax, βs, meas[:,i]-meas[:,i+4], color = colors[i], linestyle = :dash)
+        lines!(ax, βs, meas[:,i]+meas[:,i+5], color = colors[i], linestyle = :dash)
+        lines!(ax, βs, meas[:,i]-meas[:,i+5], color = colors[i], linestyle = :dash)
     end
     # set title with θ dynamically
     ax.title = L"Refractive model, $\theta = %$θ$"
     axislegend(ax, position = :lt)
-    #save(plotsdir("stability-line.pdf"), f)
+    save(plotsdir("stability-line.pdf"), f)
     display(f)
 end
 
@@ -438,7 +438,7 @@ begin
     
     ic = spike_ic_sm(N)
 
-    nequi, nmeas = 1000, 5000
+    nequi, nmeas = 100, 1000
     parallel = true
     
     # run the simulations
@@ -534,7 +534,7 @@ begin
     ic = spike_ic_mf(0, Q)
     #ic = quiet_ic_mf(0, Q)
 
-    nequi, nmeas = 5000, 1000
+    nequi, nmeas = 5000, 2000
     
     # run the simulations
     meas = zeros(length(βs), 12)
@@ -576,7 +576,7 @@ begin
     nequi, nmeas = 10000, 2000
     
     # run the simulations
-    meas = zeros(length(θs), 10)
+    meas = zeros(length(θs), 12)
     Threads.@threads for (i,) in ProgressBar(idx_combinations([θs]))    
         dm = IntegratorIMF(ic, J, θs[i], β, I, C)
         forward!(dm, nequi)
@@ -586,12 +586,12 @@ begin
     # plot
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"θ", ylabel=L"n")
-    colors = [:black, :red, :blue, :green, :orange]
-    labels = ["Firing", "Refractive", "Ready", "Fxp", "Kuramoto"]
-    for i in [1,4,5]
+    colors = [:black, :red, :blue, :green, :orange,:purple]
+    labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
+    for i in [1,4,5,6]
         lines!(ax, θs, meas[:,i], color = colors[i], label = labels[i])
-        lines!(ax, θs, meas[:,i]+meas[:,i+5], color = colors[i], linestyle = :dash)
-        lines!(ax, θs, meas[:,i]-meas[:,i+5], color = colors[i], linestyle = :dash)
+        lines!(ax, θs, meas[:,i]+meas[:,i+6], color = colors[i], linestyle = :dash)
+        lines!(ax, θs, meas[:,i]-meas[:,i+6], color = colors[i], linestyle = :dash)
     end
     # set title with θ dynamically
     ax.title = L"Integrator model, $\beta = %$β$"
@@ -613,7 +613,7 @@ begin
     nequi, nmeas = 10000, 4000
     
     # run the simulations
-    meas = zeros(length(αs), 8)
+    meas = zeros(length(αs), 12)
     Threads.@threads for (i,) in ProgressBar(idx_combinations([αs]))    
         C = exponential_weights(Q, αs[i])
         dm = IntegratorIMF(ic, J, θ, β, I, C)
@@ -624,9 +624,9 @@ begin
     # plot
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"α", ylabel=L"n")
-    colors = [:black, :red, :blue, :green]
-    labels = ["Firing", "Refractive", "Ready", "Fxp distance"]
-    for i in [1,4]
+    colors = [:black, :red, :blue, :green, :orange,:purple]
+    labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
+    for i in [1,4,5,6]
         lines!(ax, αs, meas[:,i], color = colors[i], label = labels[i])
         lines!(ax, αs, meas[:,i]+meas[:,i+4], color = colors[i], linestyle = :dash)
         lines!(ax, αs, meas[:,i]-meas[:,i+4], color = colors[i], linestyle = :dash)
@@ -652,7 +652,7 @@ begin
     nequi, nmeas = 10000, 10000
     
     # run the simulations
-    meas = zeros(length(Js), 8)
+    meas = zeros(length(Js), 12)
     Threads.@threads for (i,) in ProgressBar(idx_combinations([Js]))    
         dm = IntegratorIMF(ic, Js[i], θ, β, I, C)
         forward!(dm, nequi)
@@ -662,9 +662,9 @@ begin
     # plot
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"J", ylabel=L"n")
-    colors = [:black, :red, :blue, :green]
-    labels = ["Firing", "Refractive", "Ready", "Fxp distance"]
-    for i in [1,4]
+    colors = [:black, :red, :blue, :green, :orange,:purple]
+    labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
+    for i in [1,4,5,6]
         lines!(ax, Js, meas[:,i], color = colors[i], label = labels[i])
         lines!(ax, Js, meas[:,i]+meas[:,i+4], color = colors[i], linestyle = :dash)
         lines!(ax, Js, meas[:,i]-meas[:,i+4], color = colors[i], linestyle = :dash)
@@ -687,10 +687,10 @@ begin
     ic = spike_ic_mf(0, Q)
     C = exponential_weights(Q, α)
 
-    nequi, nmeas = 10000, 10000
+    nequi, nmeas = 10000, 5000
     
     # run the simulations
-    meas = zeros(length(I), 8)
+    meas = zeros(length(Is), 12)
     Threads.@threads for (i,) in ProgressBar(idx_combinations([Is]))    
         dm = IntegratorIMF(ic, J, θ, β, Is[i], C)
         forward!(dm, nequi)
@@ -700,12 +700,12 @@ begin
     # plot
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"I", ylabel=L"n")
-    colors = [:black, :red, :blue, :green]
-    labels = ["Firing", "Refractive", "Ready", "Fxp distance"]
-    for i in [1,4]
-        lines!(ax, I, meas[:,i], color = colors[i], label = labels[i])
-        lines!(ax, I, meas[:,i]+meas[:,i+4], color = colors[i], linestyle = :dash)
-        lines!(ax, I, meas[:,i]-meas[:,i+4], color = colors[i], linestyle = :dash)
+    colors = [:black, :red, :blue, :green, :orange,:purple]
+    labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
+    for i in [1,4,5,6]
+        lines!(ax, Is, meas[:,i], color = colors[i], label = labels[i])
+        lines!(ax, Is, meas[:,i]+meas[:,i+6], color = colors[i], linestyle = :dash)
+        lines!(ax, Is, meas[:,i]-meas[:,i+6], color = colors[i], linestyle = :dash)
     end
     # set title with θ dynamically
     ax.title = L"Integrator model, $\theta = %$θ; \beta = %$β$"
