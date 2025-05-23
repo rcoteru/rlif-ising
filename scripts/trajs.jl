@@ -21,7 +21,8 @@ end
 # MF: Time series 
 begin
     J = 1
-    θ = 0.1
+    θ = 0
+    I = 0
     β = 30
     R = 3
 
@@ -29,7 +30,7 @@ begin
 
     #ic = spike_ic_mf(R, 0)
     ic = random_ic_mf(R, 0)
-    dm = RefractiveIMF(ic, J, θ, β)
+    dm = RefractiveIMF(ic, J, θ, β, I)
     
     forward!(dm, nequi)
     traj = trajectory!(dm, nmeas, ft=true)
@@ -49,8 +50,9 @@ end
 
 # MF: Envelope
 begin
-    J = -1
-    θ = 0.1
+    J = 1
+    θ = 0
+    I = 0
     β = 30
     R = 16
 
@@ -59,7 +61,7 @@ begin
 
     #ic = spike_ic_mf(R, 0)
     ic = random_ic_mf(R, 0)
-    dm = RefractiveIMF(ic, J, θ, β)
+    dm = RefractiveIMF(ic, J, θ, β,I)
 
     forward!(dm, nequi)
     traj = trajectory!(dm, nmeas, ft=true)
@@ -83,10 +85,14 @@ begin
     J = 1
     θ = 0
     β = 10
+    I = 0
     R = 3
 
     nequi = 1000
     nmeas = 5000
+
+    ic = random_ic_mf(R, 0)
+    dm = RefractiveIMF(ic, J, θ, β,I)
 
     forward!(dm, nequi)
     traj = trajectory!(dm, nmeas, ft=true)
@@ -120,6 +126,7 @@ begin
     θ = 0
     β = 10
     R = 3
+    I = 1
 
     nequi = 1000
     nmeas = 5000
@@ -661,7 +668,7 @@ begin
     forward!(dm, nequi)
     traj = trajectory!(dm, nmeas, ft=true)
 
-    t0, tf = 1, 2000
+    t0, tf = 1, 200
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"t", ylabel=L"n")
     labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
@@ -796,12 +803,12 @@ begin
     forward!(dm, nequi)
     traj = trajectory!(dm, nmeas, ft=true)
 
-    t0, tf = 1, 30
+    t0, tf = 1,200
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"t", ylabel=L"n")
     labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
     colors = [:black, :red, :blue, :green, :orange, :purple]
-    for i in [1,4,5]
+    for i in [5,6]
         lines!(ax, t0:tf, traj[t0:tf,i], label=labels[i], color = colors[i])
     end
     axislegend(ax, position = :lt)
