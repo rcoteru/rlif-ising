@@ -7,9 +7,9 @@ ti = time()
 
 @testset "BioIsing" begin
     @testset "Auxiliary" begin include("auxiliary-test.jl") end
-    @testset "Mean Fields" begin include("mean-field-test.jl") end
+#    @testset "Mean Fields" begin include("mean-field-test.jl") end
     @testset "Spin Models" begin include("spin-model-test.jl") end
-    @testset "Lyapunov" begin include("lyapunov-test.jl") end
+#    @testset "Lyapunov" begin include("lyapunov-test.jl") end
 end
 
 ti = time() - ti

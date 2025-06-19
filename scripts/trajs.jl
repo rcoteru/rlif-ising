@@ -5,7 +5,7 @@ begin # load project environment
     include(srcdir("spin-model.jl"));
     include(srcdir("mean-field.jl"));
     include(srcdir("auxiliary.jl"));  
-    using ProgressBars
+    using ProgressMeter
     using CairoMakie
     CairoMakie.activate!()
     using FFTW
@@ -26,7 +26,7 @@ begin
     β = 30
     R = 3
 
-    nequi, nmeas = 400000, 20000
+    nequi, nmeas = 1000, 2000
 
     #ic = spike_ic_mf(R, 0)
     ic = random_ic_mf(R, 0)
@@ -35,7 +35,7 @@ begin
     forward!(dm, nequi)
     traj = trajectory!(dm, nmeas, ft=true)
 
-    t0, tf = 1, 20
+    t0, tf = 1, 200
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"t", ylabel=L"n")
     labels = ["Firing", "Refractive", "Ready"]
@@ -163,12 +163,13 @@ begin
     θ = 0
     β = 10
     R = 3
+    I = 0
 
     nequi = 1000
     nmeas = 1000
 
     ic = spike_ic_mf(R, 0)
-    dm = RefractiveIMF(ic, J, θ, β)
+    dm = RefractiveIMF(ic, J, θ, β, I)
     forward!(dm, nequi)
     traj = trajectory!(dm, nmeas, ft=true)
 
@@ -185,12 +186,13 @@ begin
     θ = 0
     β = 10
     R = 3
+    I = 0
 
     nequi = 1000
     nmeas = 1000
 
     ic = spike_ic_mf(R, 0)
-    dm = RefractiveIMF(ic, J, θ, β)
+    dm = RefractiveIMF(ic, J, θ, β,I)
     forward!(dm, nequi)
     traj = trajectory!(dm, nmeas, ft=true)
 
@@ -658,17 +660,19 @@ begin
     α = 0.1
     Q = 50
     C = exponential_weights(Q, α)
-    ic = spike_ic_mf(0, Q)
+    # ic = spike_ic_mf(0, Q)
+    
 
     nequi, nmeas = 4000, 2000
 
-    ic = spike_ic_mf(0, Q)
+    #ic = spike_ic_mf(0, Q)
+    ic= random_ic_mf(0, Q)
     dm = IntegratorIMF(ic, J, θ, β, I, C)
     
     forward!(dm, nequi)
     traj = trajectory!(dm, nmeas, ft=true)
 
-    t0, tf = 1, 200
+    t0, tf = 1, 500
     f = Figure()
     ax = Axis(f[1,1], xlabel=L"t", ylabel=L"n")
     labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
@@ -678,6 +682,7 @@ begin
     axislegend(ax, position = :lt)
     display(f)
 end
+
 
 # MF: Time series FFT
 begin
@@ -789,7 +794,7 @@ end
 begin
     J = 0.2
     θ = 1
-    β = 10
+    β = 20
     I = 0.1
     R = 3
     Q = 50
@@ -808,7 +813,7 @@ begin
     ax = Axis(f[1,1], xlabel=L"t", ylabel=L"n")
     labels = ["Firing", "Refractive", "Ready", "Fxp", "rK", "phiK"]
     colors = [:black, :red, :blue, :green, :orange, :purple]
-    for i in [5,6]
+    for i in [1]
         lines!(ax, t0:tf, traj[t0:tf,i], label=labels[i], color = colors[i])
     end
     axislegend(ax, position = :lt)
@@ -822,7 +827,7 @@ begin
     J = 0.1
     θ = 0.1
     R = 5
-    β = 6
+    β = 20
     I = 0.1 
     Q = 50
     C = exponential_weights(Q, 0.1)

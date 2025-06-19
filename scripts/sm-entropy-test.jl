@@ -7,10 +7,11 @@ begin # load project environment
     include(srcdir("auxiliary.jl"));   
     using ProgressBars
     using CairoMakie
+    CairoMakie.activate!()
 end
 
 begin
-    N = 2000
+    N = 10
     J = 0.1
     θ = 1
     β = 20
@@ -78,7 +79,7 @@ fdist = fdist_traj!(sm, 2000)
 
 
 begin
-    idx = 65
+    idx = 93
     fig = Figure()
 
     Nf, Nb = fdist[idx, 1, :], fdist[idx, 2, :]

@@ -21,15 +21,15 @@ function Base.show(io::IO, dm::DiscreteMap)
 end
 
 function step(dm::DiscreteMap) :: Vector
-    return dm.f(dm.x, dm.p)
+    return dm.f(dm.x, dm.p, dm.pc)
 end
 
 function step!(dm::DiscreteMap)
-    dm.x[:] = dm.f(dm.x, dm.p)
+    dm.x[:] = dm.f(dm.x, dm.p, dm.pc)
 end
 
 function jac(dm::DiscreteMap) :: Matrix{Float64}
-    return Zygote.jacobian(dm.f, dm.x, dm.p)[1]
+    return Zygote.jacobian(dm.f, dm.x, dm.p, dm.pc)[1]
 end
 
 function eigvals(dm::DiscreteMap) :: Vector

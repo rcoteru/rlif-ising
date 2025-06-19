@@ -804,7 +804,7 @@ end
 
 # MF: entropy along β
 begin
-    J = 0.1
+    J = 0.3
     θ = 1
     βs = range(0, 30, 31)
     I = 0.1

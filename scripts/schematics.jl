@@ -99,7 +99,6 @@ begin
         save(plotsdir("schematic.pdf"), fig)
         display(fig)
     end
-
 end;
 
 

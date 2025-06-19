@@ -254,11 +254,8 @@ end
 # @test all(sum(fdist, dims=3) .≈ 1)
 # @test all(fdist[:,1,1] .== fdist[:,1,1])
 
-
-
 # CombinedIMF
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-
 @testset "Combined Fixed Point" begin
 
     J = 0.1

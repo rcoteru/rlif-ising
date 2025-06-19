@@ -429,24 +429,3 @@ function entropy!(sm::IsingModel, meas_stp::Int, parallel :: Bool = true)
     end
     return S
 end
-
-# function entropy_old!(sm::IsingModel, meas_stp::Int, parallel :: Bool = true)
-#     #get trajectory
-#     fdist = fdist_traj!(sm, meas_stp+2, parallel=parallel)
-#     # calculate entropy
-#     S = zeros(meas_stp, 2)
-#     for i in 1:meas_stp
-#         Nf = fdist[i, 1, :]
-#         Nb = fdist[i+2, 2, :] 
-
-#         hf = [sm.β*(local_current(sm.J,τ,N2a(Nf,sm.Q),sm.C,sm.I)-sm.θ) for τ in 1:sm.Q]
-#         hb = [sm.β*(local_current(sm.J,τ,N2a(Nb,sm.Q),sm.C,sm.I)-sm.θ) for τ in 1:sm.Q]
-
-#         S[i,1] = Nf[1:sm.Q]'*(-hf.*tanh.(hf).+log.(2 .*cosh.(hf)))
-#         S[i,2] = Nb[1:sm.Q]'*(-hb.*tanh.(hf).+log.(2 .*cosh.(hb)))
-#     end
-#     return S
-# end
-
-# Useful Graphs
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
