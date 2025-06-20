@@ -13,15 +13,15 @@ end
 begin
     J = 0.2
     θ = 1
-    I = 0.025
-    β = 20
-    Q = 50
+    I = 0.1
+    β = 50
+    Q = 100
     τm = 10
-    K = 0.3
+    K = 1
 
-    nequi, nmeas = 10000, 200
+    nequi, nmeas = 20000, 10000
 
-    ic = random_ic_mf(0, Q)
+    ic = spike_ic_mf(0, Q)
     #ic = spike_ic_mf(0, Q)
     dm = SRM_mf(ic, J, θ, β, I, τm, K)
     
@@ -33,10 +33,16 @@ begin
     #lines!(ax, traj[:,2], color = :red, label = "Unsaturated Neurons")
     #lines!(ax, traj[:,3], color = :green, label = "Saturated Neurons")
     #lines!(ax, traj[:,4], color = :black, label = "Norm")
+    xlims!(ax, 0, size(traj, 1))
+    ylims!(ax, 0, 1)    
     axislegend(ax, position = :rt, title = "Legend")
     display(fig)
 end
 
+
+using StatsBase: autocor
+
+lines(autocor(traj[:,1], 1:200, demean=true))
 
 
 # get main frequency from the trajectory
@@ -165,17 +171,18 @@ end
 
 # run same simulation with different I
 begin
-    J = 0.1
+    J = 0.2
     θ = 1
-    I_values = range(0, stop=0.15, length=21)
+    I_values = range(0, stop=0.8, length=41)
     β = 40
     Q = 50
     τm = 10
-    K = 0.1
+    K = 0
+    ic = random_ic_mf(0, Q)
     nequi, nmeas = 10000, 2000
     freqs = zeros(Float32,(length(I_values)))
-    @showprogress Threads.@threads for i in eachindex(I_values)
-        ts = run_ts(J, θ, I_values[i], β, Q, τm, K, nequi, nmeas)
+    @showprogress Threads.@threads for (i,) in idx_combinations([I_values])
+        ts = run_ts(ic,J, θ, β, I_values[i], τm, K, nequi, nmeas)
         freqs[i] = get_main_freq(ts)
     end
     # plot main frequency vs I
@@ -210,4 +217,131 @@ begin
 end
 
 
-# run 
+begin
+    J = 0.1
+    θ = 1
+    Q = 50
+    τm = 10
+    K = 0.5
+
+    ic = random_ic_mf(0, Q)
+
+    Is = range(0, stop=0.2, length=21)
+    βs = range(0, 100, 51)
+    
+    nequi, nmeas = 10000, 2000
+
+    # run the simulations
+    meas = zeros(length(Is), length(βs), 2)
+    @showprogress Threads.@threads for (i,j) in idx_combinations([Is, βs])    
+        dm =  SRM_mf(ic, J, θ, βs[j], Is[i], τm, K)
+        forward!(dm, nequi)
+        S = SRM_entropy(dm, nmeas)
+        meas[i,j,:] = mean(S, dims=1)
+    end
+end
+
+# save the simulation results and parameters
+using JLD2
+begin
+    save("palma_entropy.jld2", "meas", meas, "Is", Is, "βs", βs,
+        "J", J, "θ", θ, "τm", τm, "K", K)
+end
+
+
+
+begin
+    # plot the results
+    f = Figure(size = (800, 1200))
+
+    cmap = :viridis
+
+    ax = Axis(f[1, 1])
+    hm = contourf!(ax, βs, Is, meas[:,:,1]', 
+        levels=30, colormap=cmap)
+    tightlimits!(ax)
+    Colorbar(f[1,2], hm, label = "Forwards entropy")
+    ax.title = L"Entropy production: $J=%$J; \theta=%$θ; \tau_m=%$τm; K=%$K$"
+    ax.ylabel = L"I^{ext}"
+
+
+    ax = Axis(f[2, 1])
+    hm = contourf!(ax, βs, Is, meas[:,:,2]',
+        levels=30, colormap=cmap)
+    tightlimits!(ax)
+    Colorbar(f[2,2], hm, label = "Backwards entropy")
+    ax.ylabel = L"I^{ext}"
+
+
+    ax = Axis(f[3, 1])
+    hm = contourf!(ax, βs, Is, meas[:,:,2]' - meas[:,:,1]', 
+        levels=30, colormap=cmap)
+    tightlimits!(ax)
+    Colorbar(f[3,2], hm, label = "Total Entropy")
+
+    ax.xlabel = L"\beta"
+    ax.ylabel = L"I^{ext}"
+
+    display(f)
+end
+
+
+
+begin
+    J = 0.1
+    θ = 1
+    Q = 50
+    τm = 10
+    K = 0.5
+
+    ic = random_ic_mf(0, Q)
+
+    Is = range(0, stop=0.2, length=21)
+    βs = range(0, 100, 51)
+    
+    nequi, nmeas = 10000, 2000
+
+    # run the simulations
+    vals = zeros(length(θs), length(βs), Q+1)
+    nins = zeros(length(θs), length(βs))
+    emax = zeros(length(θs), length(βs))
+    @showprogress Threads.@threads for (i,j) in idx_combinations([Is, βs])    
+        dm =  SRM_mf(ic, J, θ, βs[j], Is[i], τm, K)
+        dm.x[:] = dm.pc[:fxp]
+        meas[i,j,:] = abs.(eigvals(dm))
+        nins[i,j] = sum(meas[i,j,:] .> 1.00001)
+        emax[i,j] = maximum(meas[i,j,2:end])
+    end
+end
+begin
+    J = 0.1
+    Q = 50
+    θs = range(0, 2, 51)
+    βs = range(0, 50, 51)
+    I = 0.1
+    α = 0.1
+    ic = spike_ic_mf(0, Q)
+    C = exponential_weights(Q, α)
+    
+    # run the simulations
+    meas = zeros(length(θs), length(βs), Q+1)
+    nins = zeros(length(θs), length(βs))
+    emax = zeros(length(θs), length(βs))
+    Threads.@threads for (i,j) in ProgressBar(idx_combinations([θs, βs]))    
+        dm = IntegratorIMF(ic, J, θs[i], βs[j], I, C)
+        dm.x[:] = dm.pc[:fxp]
+        meas[i,j,:] = abs.(eigvals(dm))
+        nins[i,j] = sum(meas[i,j,:] .> 1.00001)
+        emax[i,j] = maximum(meas[i,j,2:end])
+    end
+end
+begin
+    # plot
+    f = Figure()
+    ax = Axis(f[1,1], ylabel=L"\theta", xlabel=L"\beta")
+    hm = heatmap!(ax, βs, θs, nins')
+    cbar = Colorbar(f[1,2], hm, label=L"Unstable modes$$")
+    ax.title = L"Integrator model$$"
+    save(plotsdir("integrator-unstable-plane.pdf"), f)
+    display(f)
+end
